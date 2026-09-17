@@ -715,7 +715,79 @@ function createWindow() {
   return window
 }
 
+// Settings opens as a floating sheet over the chat panel (frameless child window that
+// tracks the panel's bounds, with an acrylic blur behind it on Windows 11 and a plain dark
+// scrim elsewhere). When the panel isn't showing (orb mode / hidden) it falls back to an
+// ordinary standalone window so Settings is always reachable from the tray.
+function settingsOverlayHost() {
+  if (desktopSurfaceMode !== 'panel') return null
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isVisible() || mainWindow.isMinimized()) return null
+  return mainWindow
+}
+
+function createSettingsOverlayWindow(host) {
+  const window = new BrowserWindow({
+    ...host.getBounds(),
+    parent: host,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    hasShadow: false,
+    skipTaskbar: true,
+    backgroundColor: '#00000000',
+    backgroundMaterial: 'acrylic',
+    title: `ZD Voice — ${desktopText('设置')}`,
+    autoHideMenuBar: true,
+    show: false,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      preload: preloadPath,
+    },
+  })
+  const follow = () => {
+    if (window.isDestroyed() || host.isDestroyed()) return
+    window.setBounds(host.getBounds(), false)
+  }
+  host.on('move', follow)
+  host.on('resize', follow)
+  window.on('closed', () => {
+    if (!host.isDestroyed()) {
+      host.removeListener('move', follow)
+      host.removeListener('resize', follow)
+    }
+  })
+  window.setMenuBarVisibility(false)
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  window.webContents.on('will-navigate', event => event.preventDefault())
+  window.once('ready-to-show', () => { window.show(); window.focus() })
+  void window.loadFile(settingsPage, { query: { overlay: '1' } })
+  return window
+}
+
+function closeSettingsOverlay() {
+  if (settingsWindow && !settingsWindow.isDestroyed() && settingsWindow.getParentWindow()) {
+    settingsWindow.close()
+  }
+}
+
 function createSettingsWindow() {
+  const host = settingsOverlayHost()
+  if (host) {
+    const window = createSettingsOverlayWindow(host)
+    window.on('closed', () => {
+      if (settingsWindow === window) {
+        settingsWindow = null
+        if (desktopPresence.shortcutPaused) desktopPresence.resumeShortcut()
+      }
+    })
+    return window
+  }
   const { width: workAreaWidth, height: workAreaHeight } = screen
     .getDisplayNearestPoint(screen.getCursorScreenPoint())
     .workAreaSize
@@ -732,8 +804,8 @@ function createSettingsWindow() {
     height: settingsWindowHeight,
     minWidth: 460,
     minHeight: 600,
-    title: desktopText('设置'),
-    backgroundColor: '#f4f5f6',
+    title: `ZD Voice — ${desktopText('设置')}`,
+    backgroundColor: '#08090d',
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
@@ -852,6 +924,7 @@ function setDesktopSurfaceMode(requestedMode) {
   desktopSurfaceMode = 'orb'
   panelResizeDrag = null
   desktopPanelMaximized = null
+  closeSettingsOverlay()
   // Never carry a minimised state into orb mode (see DesktopPresence.wake).
   if (mainWindow.isMinimized()) { mainWindow.show(); mainWindow.restore() }
   mainWindow.setMinimumSize(DESKTOP_ORB_WIDTH, DESKTOP_ORB_HEIGHT)

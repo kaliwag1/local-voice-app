@@ -100,6 +100,57 @@ main {
   padding: 24px;
 }
 
+.close-button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  background: transparent;
+}
+.close-button:hover { color: var(--text); background: var(--fill-hover); }
+.close-button svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+
+/* Overlay mode (opened over the chat panel, see main.mjs createSettingsOverlayWindow):
+   transparent page + dark scrim, Settings as a centred floating sheet with its own scroll. */
+html[data-overlay] {
+  background: transparent;
+  --page: var(--surface-1);
+  --panel: var(--surface-2);
+}
+html[data-overlay] body {
+  min-width: 0;
+  height: 100vh;
+  overflow: hidden;
+  background: rgb(8 9 13 / .62);
+}
+html[data-overlay] main {
+  position: fixed;
+  inset: 0;
+  width: min(600px, calc(100% - 40px));
+  height: min(calc(100% - 40px), 780px);
+  min-height: 0;
+  margin: auto;
+  padding: 20px 24px 24px;
+  overflow-y: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--page);
+  box-shadow: 0 30px 80px rgb(0 0 0 / .6), 0 0 0 1px rgb(0 0 0 / .4);
+  animation: settings-in .18s ease-out;
+}
+html[data-overlay] .close-button[hidden] { display: grid !important; }
+@keyframes settings-in {
+  from { opacity: 0; transform: translateY(6px) scale(.985); }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-overlay] main { animation: none; }
+}
+
 #settings-form {
   display: flex;
   min-height: 0;

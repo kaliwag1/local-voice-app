@@ -240,6 +240,21 @@ resetWakeShortcut.addEventListener('click', () => {
   if (wasRecording) void restoreWakeShortcutRegistration()
 })
 
+// Overlay mode: the window floats over the chat panel; ✕, Esc or a click on the scrim closes it.
+const settingsOverlay = new URLSearchParams(window.location.search).get('overlay') === '1'
+if (settingsOverlay) {
+  document.documentElement.dataset.overlay = '1'
+  document.getElementById('close-settings')?.addEventListener('click', () => window.close())
+  document.body.addEventListener('mousedown', event => {
+    if (event.target === document.body) window.close()
+  })
+  window.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || recordingWakeShortcut || event.defaultPrevented) return
+    if (document.querySelector('[aria-expanded="true"]')) return
+    window.close()
+  })
+}
+
 window.addEventListener('keydown', event => {
   if (!recordingWakeShortcut) return
   event.preventDefault()
