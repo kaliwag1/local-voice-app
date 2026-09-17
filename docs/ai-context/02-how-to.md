@@ -28,6 +28,9 @@ list in `shared/permission-rule-patterns.mjs`. To make everything ask again, rem
 `realtime-voice-chat\Push To GitHub.cmd`. Refresh the config copies with `Update Config Snapshot.cmd`.
 
 ## Diagnose
+0. **No speech audio but transcription works** (`realtime.response.done` with `hasAudio:false`, often after
+   `session_limit_reached` in `gateway.log`): the speech service on 8765 outlived a killed app and is holding
+   a dead session. Run `realtime-voice-chat\Restart Speech Service.cmd` (the Rebuild script now also kills it).
 1. `desktop.log` — `gateway.exited` with `planned:false` = crash.
 2. `gateway.log` — look for `backend.exited`, `acp.initialization_failed`, `backend.output` (OpenCode's own stdout/stderr), `task.failed`.
 3. Task error text is in `state\desktop\tasks.json` (`error` field).

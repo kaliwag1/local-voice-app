@@ -297,7 +297,7 @@ const pushToTalkHook = createPushToTalkHook({
 let pushToTalkGlobal = false
 async function applyPushToTalkKey(accelerator, micMode = 'push-to-talk') {
   pushToTalkGlobal = await pushToTalkHook.setAccelerator(micMode === 'push-to-talk' ? accelerator : '')
-  if (accelerator && !pushToTalkGlobal) {
+  if (accelerator && micMode === 'push-to-talk' && !pushToTalkGlobal) {
     logger.warn('push_to_talk.global_unavailable', { accelerator, hint: 'npm install uiohook-napi in desktop/ (Windows), then rebuild' })
   }
   return pushToTalkGlobal
