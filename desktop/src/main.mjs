@@ -739,7 +739,6 @@ function createSettingsOverlayWindow(host) {
     hasShadow: false,
     skipTaskbar: true,
     backgroundColor: '#00000000',
-    backgroundMaterial: 'acrylic',
     title: `ZD Voice — ${desktopText('设置')}`,
     autoHideMenuBar: true,
     show: false,
@@ -756,7 +755,11 @@ function createSettingsOverlayWindow(host) {
   }
   host.on('move', follow)
   host.on('resize', follow)
+  const tellHost = open => {
+    if (!host.isDestroyed()) host.webContents.send('qwen-audio-agent:settings-overlay', { open })
+  }
   window.on('closed', () => {
+    tellHost(false)
     if (!host.isDestroyed()) {
       host.removeListener('move', follow)
       host.removeListener('resize', follow)
@@ -765,7 +768,7 @@ function createSettingsOverlayWindow(host) {
   window.setMenuBarVisibility(false)
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.webContents.on('will-navigate', event => event.preventDefault())
-  window.once('ready-to-show', () => { window.show(); window.focus() })
+  window.once('ready-to-show', () => { tellHost(true); window.show(); window.focus() })
   void window.loadFile(settingsPage, { query: { overlay: '1' } })
   return window
 }

@@ -126,8 +126,12 @@ html[data-overlay] body {
   min-width: 0;
   height: 100vh;
   overflow: hidden;
-  background: rgb(8 9 13 / .62);
+  background: rgb(8 9 13 / .35);
+  opacity: 0;
+  transition: opacity .22s ease;
 }
+html[data-overlay][data-shown] body { opacity: 1; }
+html[data-overlay][data-closing] body { opacity: 0; transition-duration: .16s; }
 html[data-overlay] main {
   position: fixed;
   inset: 0;
@@ -141,14 +145,15 @@ html[data-overlay] main {
   border-radius: var(--radius-xl);
   background: var(--page);
   box-shadow: 0 30px 80px rgb(0 0 0 / .6), 0 0 0 1px rgb(0 0 0 / .4);
-  animation: settings-in .18s ease-out;
+  opacity: 0;
+  transform: translateY(10px) scale(.975);
+  transition: opacity .22s ease, transform .26s cubic-bezier(.2, .8, .2, 1);
 }
+html[data-overlay][data-shown] main { opacity: 1; transform: none; }
+html[data-overlay][data-closing] main { opacity: 0; transform: translateY(6px) scale(.985); transition-duration: .16s; }
 html[data-overlay] .close-button[hidden] { display: grid !important; }
-@keyframes settings-in {
-  from { opacity: 0; transform: translateY(6px) scale(.985); }
-}
 @media (prefers-reduced-motion: reduce) {
-  html[data-overlay] main { animation: none; }
+  html[data-overlay] body, html[data-overlay] main { transition: none; }
 }
 
 #settings-form {

@@ -59,6 +59,12 @@ contextBridge.exposeInMainWorld('qwenAudioAgentDesktop', {
     'qwen-audio-agent:local-voice-set',
     voice,
   ),
+  onSettingsOverlay: callback => {
+    if (typeof callback !== 'function') return () => {}
+    const listener = (_event, payload) => callback(Boolean(payload?.open))
+    ipcRenderer.on('qwen-audio-agent:settings-overlay', listener)
+    return () => ipcRenderer.removeListener('qwen-audio-agent:settings-overlay', listener)
+  },
   onSurfaceReset: callback => {
     if (typeof callback !== 'function') return () => {}
     const listener = (_event, payload) => callback(payload)

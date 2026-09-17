@@ -1318,6 +1318,16 @@ export default function App() {
     setActivity(t('待命'))
   }
 
+  // Settings floats over the panel as its own window; the panel blurs itself underneath
+  // (a transparent child window can't blur what's behind it).
+  useEffect(() => {
+    const subscribe = window.qwenAudioAgentDesktop?.onSettingsOverlay
+    if (typeof subscribe !== 'function') return undefined
+    return subscribe(open => {
+      document.documentElement.toggleAttribute('data-settings-open', open)
+    })
+  }, [])
+
   // Tray → "Reset floating orb": main has already put the window into orb
   // shape; mirror that here so the page draws the orb, not the panel.
   useEffect(() => {

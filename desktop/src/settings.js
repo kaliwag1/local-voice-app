@@ -242,16 +242,26 @@ resetWakeShortcut.addEventListener('click', () => {
 
 // Overlay mode: the window floats over the chat panel; ✕, Esc or a click on the scrim closes it.
 const settingsOverlay = new URLSearchParams(window.location.search).get('overlay') === '1'
+let closingOverlay = false
+function closeOverlay() {
+  if (closingOverlay) return
+  closingOverlay = true
+  document.documentElement.dataset.closing = '1'
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  setTimeout(() => window.close(), reduced ? 0 : 170)
+}
 if (settingsOverlay) {
   document.documentElement.dataset.overlay = '1'
-  document.getElementById('close-settings')?.addEventListener('click', () => window.close())
+  // Two frames in, so the first paint is the transparent start state and the transition runs.
+  requestAnimationFrame(() => requestAnimationFrame(() => { document.documentElement.dataset.shown = '1' }))
+  document.getElementById('close-settings')?.addEventListener('click', closeOverlay)
   document.body.addEventListener('mousedown', event => {
-    if (event.target === document.body) window.close()
+    if (event.target === document.body) closeOverlay()
   })
   window.addEventListener('keydown', event => {
     if (event.key !== 'Escape' || recordingWakeShortcut || event.defaultPrevented) return
     if (document.querySelector('[aria-expanded="true"]')) return
-    window.close()
+    closeOverlay()
   })
 }
 

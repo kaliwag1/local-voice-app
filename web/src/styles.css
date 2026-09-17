@@ -322,6 +322,17 @@ html[data-desktop="orb"] #root {
     var(--bg);
 }
 
+/* While the Settings sheet floats over the panel, the panel itself blurs and dims. */
+.desktop-conversation-panel {
+  transition: filter .25s ease;
+}
+html[data-settings-open] .desktop-conversation-panel {
+  filter: blur(7px) brightness(.72) saturate(.85);
+}
+@media (prefers-reduced-motion: reduce) {
+  .desktop-conversation-panel { transition: none; }
+}
+
 .desktop-conversation-panel {
   position: relative;
   border: 1px solid var(--border);
@@ -686,13 +697,15 @@ html[data-desktop="orb"] #root {
   display: none;
 }
 
+/* The conversation sits in a centred column (like a chat app) rather than hugging the edges. */
 .desktop-conversation-panel .messages {
-  margin: 0;
-  padding: 16px 14px 8px;
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: 16px 22px 8px;
 }
 
 .desktop-conversation-panel article {
-  max-width: 88%;
+  max-width: 82%;
 }
 
 .desktop-conversation-panel .agent-task,
@@ -702,8 +715,8 @@ html[data-desktop="orb"] #root {
 }
 
 .desktop-conversation-panel .multimodal-composer {
-  width: calc(100% - 24px);
-  margin: 0 12px 12px;
+  width: min(calc(100% - 28px), 720px);
+  margin: 0 auto 12px;
   padding: 8px;
   border-radius: var(--radius-lg);
 }
