@@ -25,8 +25,14 @@ export function taskIsActive(task) {
     .includes(task?.workState)
 }
 
+// A card worth keeping after the reply has been spoken: it has artifacts, or
+// it created/changed files the user may want to open.
+export function taskKeepsCard(task) {
+  return taskHasArtifacts(task) || taskFiles(task).some(file => file.written)
+}
+
 export function taskNeedsPresentation(task) {
-  if (taskHasArtifacts(task)) return true
+  if (taskKeepsCard(task)) return true
   if (taskIsActive(task)) return true
   return (
     ['completed', 'failed'].includes(task?.status)
@@ -37,7 +43,7 @@ export function taskNeedsPresentation(task) {
 export function removeDeliveredTask(tasks, taskId) {
   return tasks.flatMap(task => {
     if (task.id !== taskId) return [task]
-    if (!taskHasArtifacts(task)) return []
+    if (!taskKeepsCard(task)) return []
     // Playback completion settles presentation, not backend execution.
     return [task.phase === 'responding' ? { ...task, phase: 'completed' } : task]
   })
@@ -45,7 +51,7 @@ export function removeDeliveredTask(tasks, taskId) {
 
 export function taskDeliverySettled(task) {
   return (
-    !taskHasArtifacts(task)
+    !taskKeepsCard(task)
     && ['completed', 'failed'].includes(task?.status)
     && task?.notificationStatus === 'delivered'
   )

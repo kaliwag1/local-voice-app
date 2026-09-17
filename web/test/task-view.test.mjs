@@ -416,3 +416,13 @@ test('taskFiles lists written paths first and falls back to read paths', async (
   assert.deepEqual(taskFiles({ activity: [] }), [])
   assert.deepEqual(taskFiles({}), [])
 })
+
+test('a task that wrote files keeps its card after delivery, like one with artifacts', async () => {
+  const { removeDeliveredTask, taskKeepsCard } = await import('../src/task-view.js')
+  const wrote = { id: 'w', phase: 'responding', activity: [{ kind: 'tool', paths: ['C:\\x\\out.txt'], writes: true }] }
+  const readOnly = { id: 'r', phase: 'responding', activity: [{ kind: 'tool', paths: ['C:\\x\\in.txt'], writes: false }] }
+  assert.equal(taskKeepsCard(wrote), true)
+  assert.equal(taskKeepsCard(readOnly), false)
+  assert.deepEqual(removeDeliveredTask([wrote, readOnly], 'w').map(t => [t.id, t.phase]), [['w', 'completed'], ['r', 'responding']])
+  assert.deepEqual(removeDeliveredTask([wrote, readOnly], 'r').map(t => t.id), ['w'])
+})

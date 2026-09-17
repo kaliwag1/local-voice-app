@@ -40,6 +40,7 @@ import {
   taskLabel,
   taskView,
   taskFiles,
+  taskKeepsCard,
 } from './task-view.js'
 import { taskHasArtifacts } from './task-artifacts.js'
 import useRealtimeVoice, {
@@ -848,7 +849,7 @@ export default function App() {
       )
       setAgentTasks(items => items.filter(task => (
         !presentedTaskIds.has(task.id)
-        || taskHasArtifacts(task)
+        || taskKeepsCard(task)
         || !['responding', 'completed'].includes(task.phase)
       )))
     }
