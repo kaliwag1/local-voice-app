@@ -199,6 +199,8 @@ let desktopSurfaceMode = 'orb'
 let desktopPanelSize = desktopSettingsStore.loadUiState().conversationPanelSize || null
 let desktopPanelSizeSaveTimer = null
 let panelResizeDrag = null
+// Bounds to return to when the panel is un-maximised (null = not maximised).
+let desktopPanelMaximized = null
 
 function rememberDesktopPanelSize(bounds) {
   desktopPanelSize = { width: bounds.width, height: bounds.height }
@@ -693,10 +695,6 @@ function createWindow() {
     orbShell.cancelDrag()
     panelResizeDrag = null
   })
-  // Native edge resizing (Windows/macOS emit 'resized' when the drag ends).
-  window.on('resized', () => {
-    if (desktopSurfaceMode === 'panel' && !panelResizeDrag) rememberDesktopPanelSize(window.getBounds())
-  })
   window.on('closed', () => {
     if (mainWindow === window) {
       clearTimeout(reconnectTimer)
@@ -820,16 +818,16 @@ function setDesktopSurfaceMode(requestedMode) {
     mainWindow.setVisibleOnAllWorkspaces(false)
     mainWindow.setSkipTaskbar(false)
     mainWindow.setHasShadow(true)
-    // Let the OS resize the panel from its edges while it is open. The limits
-    // are per display, so set them here rather than at window creation. On
-    // platforms where a transparent frameless window has no native resize
-    // border, the page's own edge grips (panel-resize IPC below) take over.
+    // Resizing is done by the page's edge grips (panel-resize IPC below), not
+    // by the OS: native resize borders on this transparent frameless window
+    // showed a "not allowed" cursor on Windows. The limits are per display, so
+    // set them here rather than at window creation.
     mainWindow.setMinimumSize(
       Math.min(DESKTOP_PANEL_MIN_WIDTH, workArea.width),
       Math.min(DESKTOP_PANEL_MIN_HEIGHT, workArea.height),
     )
     mainWindow.setMaximumSize(workArea.width, workArea.height)
-    mainWindow.setResizable(true)
+    desktopPanelMaximized = null
     mainWindow.setBounds(desktopConversationPanelBounds({
       orbBounds,
       workArea,
@@ -844,9 +842,8 @@ function setDesktopSurfaceMode(requestedMode) {
   const orbAnchor = desktopOrbAnchorFromPanel({ bounds, workArea })
   desktopSurfaceMode = 'orb'
   panelResizeDrag = null
-  // The orb must never be resizable; restore the fixed-size contract before
-  // shrinking back to it.
-  mainWindow.setResizable(false)
+  desktopPanelMaximized = null
+  if (mainWindow.isMinimized()) mainWindow.restore()
   mainWindow.setMinimumSize(DESKTOP_ORB_WIDTH, DESKTOP_ORB_HEIGHT)
   mainWindow.setMaximumSize(workArea.width, workArea.height)
   mainWindow.setSkipTaskbar(true)
@@ -910,6 +907,7 @@ function updateDesktopTaskSurface(value) {
 // as the orb (orb-shell.mjs), but resizing instead of moving.
 ipcMain.handle('qwen-audio-agent:panel-resize-start', (event, request) => {
   if (!mainWindow || event.sender !== mainWindow.webContents || desktopSurfaceMode !== 'panel') return false
+  desktopPanelMaximized = null
   const edges = request?.edges
   if (!edges || !['left', 'right', 'top', 'bottom'].some(side => edges[side] === true)) return false
   panelResizeDrag = {
@@ -923,6 +921,30 @@ ipcMain.handle('qwen-audio-agent:panel-resize-start', (event, request) => {
     return false
   }
   return true
+})
+
+// Title-bar style controls drawn by the page while the panel is open.
+ipcMain.handle('qwen-audio-agent:panel-window-control', (event, action) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents || desktopSurfaceMode !== 'panel') return { ok: false }
+  if (action === 'minimize') {
+    mainWindow.minimize()
+    return { ok: true }
+  }
+  if (action === 'maximize') {
+    const bounds = mainWindow.getBounds()
+    const workArea = screen.getDisplayMatching(bounds).workArea
+    panelResizeDrag = null
+    if (desktopPanelMaximized) {
+      const previous = desktopPanelMaximized
+      desktopPanelMaximized = null
+      mainWindow.setBounds(desktopResizedPanelBounds({ bounds: previous, workArea }), false)
+      return { ok: true, maximized: false }
+    }
+    desktopPanelMaximized = bounds
+    mainWindow.setBounds({ x: workArea.x, y: workArea.y, width: workArea.width, height: workArea.height }, false)
+    return { ok: true, maximized: true }
+  }
+  return { ok: false }
 })
 
 ipcMain.on('qwen-audio-agent:panel-resize-move', (event, point) => {

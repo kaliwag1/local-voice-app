@@ -282,15 +282,41 @@ html[data-desktop="orb"] #root {
   touch-action: none;
   background: transparent;
 }
-.panel-grip-top, .panel-grip-bottom { left: 12px; right: 12px; height: 6px; cursor: ns-resize; }
-.panel-grip-left, .panel-grip-right { top: 12px; bottom: 12px; width: 6px; cursor: ew-resize; }
+.panel-grip-top, .panel-grip-bottom { left: 14px; right: 14px; height: 8px; cursor: ns-resize; }
+.panel-grip-left, .panel-grip-right { top: 14px; bottom: 14px; width: 8px; cursor: ew-resize; }
 .panel-grip-top { top: 0; }
 .panel-grip-bottom { bottom: 0; }
 .panel-grip-left { left: 0; }
 .panel-grip-right { right: 0; }
 .panel-grip-top-left, .panel-grip-top-right, .panel-grip-bottom-left, .panel-grip-bottom-right {
-  width: 14px; height: 14px;
+  width: 16px; height: 16px;
 }
+
+/* Minimise / maximise / close, Windows-style, at the right end of the header. */
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  -webkit-app-region: no-drag;
+}
+.desktop-conversation-panel header .window-control {
+  width: 30px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #b8b3c8;
+}
+.desktop-conversation-panel header .window-control svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+}
+.desktop-conversation-panel header .window-control:hover { background: #ffffff14; color: #f2efff; }
+.desktop-conversation-panel header .window-control-close:hover { background: #d8323c; color: white; }
 .panel-grip-top-left { top: 0; left: 0; cursor: nwse-resize; }
 .panel-grip-bottom-right { bottom: 0; right: 0; cursor: nwse-resize; }
 .panel-grip-top-right { top: 0; right: 0; cursor: nesw-resize; }
@@ -336,8 +362,7 @@ html[data-desktop="orb"] #root {
 }
 
 .desktop-conversation-panel header .desktop-new-session,
-.desktop-conversation-panel header .desktop-chat-toggle,
-.desktop-conversation-panel header .desktop-panel-collapse {
+.desktop-conversation-panel header .desktop-chat-toggle {
   display: grid;
 }
 

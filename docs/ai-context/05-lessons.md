@@ -18,3 +18,7 @@
     (Codex runtime cache). Identify it by the stub path on its command line, not by exe path.
 11. **Shallow clone can't be pushed** — `git fetch --unshallow origin` first.
 12. **Desktop-icon clicks via computer-use are unreliable** when a browser is maximised; ask Jake to click.
+13. **Don't make the transparent panel window natively resizable.** `setResizable(true)` on the
+    frameless transparent window gives Windows' resize border, which shows the "not allowed"
+    cursor on hover. Resize from page grips via IPC (`panel-resize-*`) instead — same pattern as
+    the orb drag, which is known to work.

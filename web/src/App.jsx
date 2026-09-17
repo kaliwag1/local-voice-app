@@ -1476,6 +1476,7 @@ export default function App() {
   // Resize grips around the desktop chat panel. Same screen-coordinate drag
   // contract as the orb move above; the main process clamps and applies it.
   const panelResize = useRef(null)
+  const [panelMaximized, setPanelMaximized] = useState(false)
   const beginPanelResize = edges => event => {
     const bridge = window.qwenAudioAgentDesktop
     if (!desktopOrbMode || event.button !== 0 || typeof bridge?.panelResizeStart !== 'function') return
@@ -1915,13 +1916,29 @@ export default function App() {
             ? t('麦克风静音')
             : waitingForVoice ? t('取消等待') : t('开启麦克风')}
       </button>
-      {desktopOrbMode && <button
-        className="ghost desktop-panel-collapse"
-        onClick={() => void changeDesktopSurface('orb')}
-        title={t('收起为悬浮球')}
-      >
-        <OrbControlIcon type="collapse" />
-      </button>}
+      {desktopOrbMode && <div className="window-controls" role="group" aria-label="Window">
+        <button
+          className="ghost window-control"
+          onClick={() => void window.qwenAudioAgentDesktop?.panelWindowControl?.('minimize')}
+          title="Minimise"
+          aria-label="Minimise"
+        ><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5.5h8" /></svg></button>
+        <button
+          className="ghost window-control"
+          onClick={() => void window.qwenAudioAgentDesktop?.panelWindowControl?.('maximize')
+            .then(result => { if (result && typeof result.maximized === 'boolean') setPanelMaximized(result.maximized) })}
+          title={panelMaximized ? 'Restore' : 'Maximise'}
+          aria-label={panelMaximized ? 'Restore' : 'Maximise'}
+        >{panelMaximized
+          ? <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1.5h5.5V7M1.5 3h5.5v5.5H1.5z" /></svg>
+          : <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 1.5h7v7h-7z" /></svg>}</button>
+        <button
+          className="ghost window-control window-control-close"
+          onClick={() => void changeDesktopSurface('orb')}
+          title="Close to the floating orb (quit from the tray icon)"
+          aria-label="Close to the floating orb"
+        ><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" /></svg></button>
+      </div>}
     </header>
 
     {desktopOrbMode && chatsOpen && <aside className="chat-sidebar" aria-label="Chats">

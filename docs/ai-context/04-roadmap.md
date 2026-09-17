@@ -18,7 +18,8 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 2. 🔧 **Chat titles** — coded and tested; in the 03:16 build, awaiting Jake's live check.
 3. 🔧 **Health panel** — built; collector tested against local services. In the 03:16 build, awaiting Settings UI check.
 4. 🔧 **Screen-aware questions** — built; in the 03:16 build, awaiting screenshot-to-answer check.
-7. 🔧 **Resizable chat panel** — native edges + fallback grips, size remembered. Awaiting rebuild.
+7. 🔧 **Resizable chat panel** — edge grips (drag verified live), size remembered; native resize removed
+   after the cursor glitch. Minimise/maximise/close buttons added. Awaiting rebuild + check.
 6. 🔧 **Voice picker** — Pocket TTS presets + cloned voices from `voices\`; speech-only restart.
    Awaiting rebuild + listen test.
 5. 🔧 **Background model switching** — built and unit-tested (preload when VRAM allows, services stay up

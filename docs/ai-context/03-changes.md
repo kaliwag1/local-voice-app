@@ -2,6 +2,18 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-17 — window controls; native resize dropped (Claude)
+- Jake's live check of take 2: edge dragging worked, but hovering the edge showed Windows'
+  "not allowed" cursor — that is the OS resize border on the transparent frameless window.
+  Removed `setResizable(true)`; the eight page grips (now 8 px edges / 16 px corners) do all
+  resizing with proper resize cursors. Lesson added to `05-lessons.md`.
+- **Minimise / maximise / close** buttons at the right end of the panel header (`.window-controls`,
+  `OrbControlIcon` collapse button replaced). IPC `qwen-audio-agent:panel-window-control`:
+  `minimize` → `BrowserWindow.minimize()`; `maximize` → toggles between the work area and the
+  previous bounds (tracked in `desktopPanelMaximized`, cleared by any grip drag or collapse);
+  the ✕ collapses to the orb (quitting stays on the tray menu). Un-minimise happens via the
+  taskbar (panel mode has `skipTaskbar: false`). Needs rebuild + check.
+
 ## 2026-09-17 — resizable chat panel, take 2 (Claude)
 - Take 1 (`49c161c`, reverted in `597da75`): a single lower-left grip that "wouldn't drag", bundled
   with a chat-list CSS change that broke spacing. This take touches **no chat-list CSS**.
