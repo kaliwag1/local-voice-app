@@ -939,3 +939,16 @@ footer {
   color: var(--text-secondary);
   font-size: 13px;
 }
+
+.permission-rule-form { padding: 16px; margin-bottom: 12px; }
+.permission-rule-form h2 { margin: 0 0 12px; font-size: 15px; }
+.permission-rule-fields { display: grid; grid-template-columns: 120px 1fr; gap: 10px 12px; align-items: end; }
+.permission-rule-fields label { display: grid; gap: 4px; font-size: 12px; color: var(--text-secondary); }
+.permission-rule-fields label[hidden] { display: none; }
+.permission-rule-fields input, .permission-rule-fields select { min-width: 0; width: 100%; }
+.permission-rule-submit { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.permission-rule-error { font-size: 12px; color: #e06c75; }
+.permission-rule-card { padding: 14px 16px; margin-bottom: 10px; }
+.permission-rule-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.permission-rule-head h2 { margin: 0; font-size: 13px; font-family: ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+.permission-rule-card dl { margin: 8px 0 0; }

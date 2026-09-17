@@ -39,6 +39,7 @@ import {
 } from '../voice/realtime-provider.mjs'
 import { InputArbitration } from '../voice/input-arbitration.mjs'
 import { PermissionPolicy } from '../task/permission-policy.mjs'
+import { PermissionRules, suggestRule } from '../task/permission-rules.mjs'
 import { TaskManager } from '../task/task-manager.mjs'
 import { TaskStore } from '../task/task-store.mjs'
 import { SessionJournalRegistry } from '../session/session-journal-registry.mjs'
@@ -136,10 +137,15 @@ taskManager ||= new TaskManager({
   maxTerminalTasksPerOwner: config.maxTerminalTasksPerOwner,
   scheduledTaskTimeoutMs: config.scheduledTaskTimeoutMs,
 })
+const permissionRules = new PermissionRules({
+  path: resolve(config.stateDirectory, 'permission-rules.json'),
+  logger,
+})
 const permissionPolicy = new PermissionPolicy({
   taskManager,
   ttlMs: config.conversationSessionTtlMs,
   maxSessions: config.maxConversationSessions,
+  rules: permissionRules,
 })
 const respondAuthorization = (taskId, id, decision, options) => (
   agent.respondAuthorization(taskId, id, decision, options)
@@ -931,6 +937,32 @@ app.post('/api/permissions/:id', async (req, res, next) => {
   }
 })
 
+// Persistent "always allow" rules. Local-owner only: rules are machine-wide.
+app.get('/api/permission-rules', (req, res) => {
+  res.json({ rules: permissionRules.list() })
+})
+
+app.post('/api/permission-rules', (req, res) => {
+  try {
+    const rule = permissionRules.add(req.body || {})
+    logger.info('permission_rules.added', { rule, ownerId: req.identity.ownerId })
+    permissionPolicy.flushRuleMatches()
+    return res.status(201).json({ rule })
+  } catch (error) {
+    return res.status(400).json({ error: error.message })
+  }
+})
+
+app.post('/api/permission-rules/suggest', (req, res) => {
+  res.json({ suggestion: suggestRule(req.body?.operation), explanation: permissionRules.explain(req.body?.operation) })
+})
+
+app.delete('/api/permission-rules/:id', (req, res) => {
+  const removed = permissionRules.remove(req.params.id)
+  if (removed) logger.info('permission_rules.removed', { id: req.params.id, ownerId: req.identity.ownerId })
+  return removed ? res.status(204).end() : res.status(404).json({ error: 'rule not found' })
+})
+
 app.get('/api/tasks/:id/events', (req, res) => {
   const task = taskManager.get(req.params.id, { ownerId: req.identity.ownerId })
   if (!task) return res.status(404).json({ error: 'task not found' })
@@ -1082,6 +1114,7 @@ const close = () => {
     conversationHistoryRuntime.close?.()
     await sessionJournalRuntime.flush()
     await taskStore?.flush?.()
+    await permissionRules.flush()
     if (!server.listening) return
     await new Promise((resolveClose, rejectClose) => {
       server.close(error => {

@@ -115,6 +115,7 @@ contextBridge.exposeInMainWorld('qwenAudioAgentDesktop', {
     'qwen-audio-agent:settings-runtime-status',
   ),
   loadHealthDiagnostics: () => ipcRenderer.invoke('qwen-audio-agent:health-diagnostics'),
+  managePermissionRules: request => ipcRenderer.invoke('qwen-audio-agent:permission-rules', request),
   detectBackends: options => ipcRenderer.invoke(
     'qwen-audio-agent:settings-detect-backends',
     { force: options?.force === true },

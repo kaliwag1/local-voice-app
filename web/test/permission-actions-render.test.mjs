@@ -29,6 +29,12 @@ function markup(authorization = {}) {
   }))
 }
 
+function markupWithRemember(operation) {
+  return renderToStaticMarkup(createElement(PermissionActions, {
+    authorization: { operation }, onRespond() {}, onRemember() {},
+  }))
+}
+
 test('permission buttons are short in both languages and retain session scope in accessible hints', () => {
   for (const [lang, labels, scope] of [
     ['zh', ['允许此任务', '始终允许', '拒绝'], '本会话后续权限请求自动允许'],
@@ -56,4 +62,13 @@ test('each button sends its own decision and pending submission keeps all labels
   assert.match(html, /role="status">Submitting/)
   assert.match(html, /role="alert">Could not send; try again\./)
   assert.match(html, />Always allow<\/button>/)
+})
+
+test('offers "Remember…" only when a safe rule can be made from the operation', () => {
+  setRuntimeLanguage('en')
+  assert.ok(markupWithRemember({ kind: 'execute', command: 'ffprobe -i a.mov' }).includes('>Remember…<'))
+  assert.ok(markupWithRemember({ kind: 'read', path: 'D:\\Footage\\a.mov' }).includes('>Remember…<'))
+  assert.ok(!markupWithRemember({ kind: 'execute', command: 'rm -rf D:\\Footage' }).includes('Remember'))
+  assert.ok(!markupWithRemember({ kind: 'delete', path: 'D:\\Footage\\a.mov' }).includes('Remember'))
+  assert.ok(!markup({ operation: { kind: 'execute', command: 'ffprobe x' } }).includes('Remember'), 'no handler, no button')
 })

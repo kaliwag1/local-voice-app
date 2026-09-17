@@ -9,6 +9,7 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 - Live checks outstanding: auto-titles / rename (double-click) / pin; Settings → Health;
   "Look at my screen"; model switch in both `background` and `sequential` mode (sidebar text says
   which); context-window picker (check `lms ps` shows the new context, and that the launcher keeps it).
+  Permissions: run a task that calls ffprobe → Remember… → Save & allow; re-run: no prompt; Settings → Permissions shows 1 use.
   Resize: drag any edge/corner of the chat panel; close to orb and reopen — size kept; orb still fixed.
   Voice picker: pick Alba, listen; drop a WAV in `voices\`, refresh (↻), pick it, listen.
 - Report any breakage in `03-changes.md`. Next work comes from the Ideas list — ask Jake which.
@@ -18,6 +19,8 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 2. 🔧 **Chat titles** — coded and tested; in the 03:16 build, awaiting Jake's live check.
 3. 🔧 **Health panel** — built; collector tested against local services. In the 03:16 build, awaiting Settings UI check.
 4. 🔧 **Screen-aware questions** — built; in the 03:16 build, awaiting screenshot-to-answer check.
+8. 🔧 **Permission memory** — persistent command/folder rules, Remember… on cards, Settings → Permissions.
+   Awaiting rebuild + live check.
 7. 🔧 **Resizable chat panel** — edge grips (drag verified live), size remembered; native resize removed
    after the cursor glitch. Minimise/maximise/close buttons added. Awaiting rebuild + check.
 6. 🔧 **Voice picker** — Pocket TTS presets + cloned voices from `voices\`; speech-only restart.
@@ -37,5 +40,4 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 - 💡 Footage helpers: list clips with durations, batch rename, ffmpeg proxies.
 - 💡 Client admin: quotes/invoices from templates; outstanding-invoice check.
 - 💡 Shoot prep: call sheet from calendar event + gear list.
-- 💡 Permission memory ("always allow" per command pattern) with a review page.
 - 💡 Search across chats.

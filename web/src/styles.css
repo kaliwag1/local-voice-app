@@ -1530,6 +1530,57 @@ header .ghost.active { color: white; border-color: #785cf480; background: #785cf
   color: #a9efd4;
   background: #142a23;
 }
+.agent-task .permission-actions.with-remember {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-width: 440px;
+}
+.agent-task .permission-actions .permission-remember {
+  border-color: #7fa6e066;
+  color: #c6d8f5;
+  background: #172233;
+}
+.agent-task .permission-rule-editor {
+  display: grid;
+  gap: 6px;
+  max-width: 440px;
+  padding: 8px;
+  border: 1px solid #7fa6e044;
+  border-radius: 8px;
+  background: #121a27;
+}
+.agent-task .permission-rule-editor label {
+  display: grid;
+  gap: 3px;
+  font-size: 10px;
+  color: #9fb3d3;
+}
+.agent-task .permission-rule-editor input,
+.agent-task .permission-rule-editor select {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid #ffffff24;
+  border-radius: 6px;
+  color: #f2efff;
+  background: #0d121b;
+  font: inherit;
+  font-size: 11px;
+}
+.agent-task .permission-rule-editor small { color: #8d99ad; font-size: 10px; white-space: normal; }
+.agent-task .permission-rule-editor-actions { display: flex; gap: 6px; }
+.agent-task .permission-rule-editor-actions button {
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid #8171ca66;
+  border-radius: 8px;
+  color: #dcd6f7;
+  background: #211d33;
+  font-size: 11px;
+}
+.agent-task .permission-rule-editor-actions .permission-task {
+  border-color: #4bc69466;
+  color: #a9efd4;
+  background: #142a23;
+}
 .agent-task .permission-actions .permission-reject {
   border-color: #d76f7555;
   color: #f0b0b4;

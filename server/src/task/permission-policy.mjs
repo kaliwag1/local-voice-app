@@ -12,7 +12,10 @@ export class PermissionPolicy {
     ttlMs = 6 * 60 * 60 * 1000,
     now = () => Date.now(),
     taskManager = null,
+    rules = null,
   } = {}) {
+    // Persistent "always allow" rules (PermissionRules); optional.
+    this.rules = rules
     this.maxSessions = maxSessions
     this.ttlMs = ttlMs
     this.now = now
@@ -96,11 +99,14 @@ export class PermissionPolicy {
     return task && task.sessionId === context.sessionId && isTaskActive(task.status) && task.status !== 'cancelling'
   }
 
-  shouldAutoAllow(ownerId, sessionId, taskId) {
+  shouldAutoAllow(ownerId, sessionId, taskId, permission = null) {
     const context = { ownerId, sessionId, taskId }
     if (taskId && !this.active(context)) return false
-    return this.mode(ownerId, sessionId) === 'auto_allow'
-      || Boolean(taskId && this.tasks.get(this.taskKey(context))?.allowed)
+    if (this.mode(ownerId, sessionId) === 'auto_allow') return true
+    if (taskId && this.tasks.get(this.taskKey(context))?.allowed) return true
+    // Stored rules apply to every owner/session/task; the rule store itself
+    // refuses destructive commands and delete operations.
+    return Boolean(permission?.operation && this.rules?.match?.(permission.operation))
   }
 
   // One interceptor for voice-created, client-created and scheduled Tasks.
@@ -119,7 +125,7 @@ export class PermissionPolicy {
     if (!this.active(context)) return
     const entry = { ...context, event, onEvent, respondAuthorization, published: false }
     this.pending.set(id, entry)
-    if (respondAuthorization && this.shouldAutoAllow(context.ownerId, context.sessionId, context.taskId)) {
+    if (respondAuthorization && this.shouldAutoAllow(context.ownerId, context.sessionId, context.taskId, event.permission)) {
       this.approve(id, entry)
     } else {
       entry.published = true
@@ -147,7 +153,17 @@ export class PermissionPolicy {
   flushPending(ownerId, sessionId) {
     for (const [id, entry] of this.pending) {
       if (entry.ownerId === ownerId && entry.sessionId === sessionId
-        && entry.respondAuthorization && this.shouldAutoAllow(ownerId, sessionId, entry.taskId)) {
+        && entry.respondAuthorization && this.shouldAutoAllow(ownerId, sessionId, entry.taskId, entry.event?.permission)) {
+        this.approve(id, entry)
+      }
+    }
+  }
+
+  // After a rule is added: approve any request already waiting that it covers.
+  flushRuleMatches() {
+    for (const [id, entry] of this.pending) {
+      if (entry.respondAuthorization && entry.event?.permission?.operation
+        && this.rules?.match?.(entry.event.permission.operation)) {
         this.approve(id, entry)
       }
     }

@@ -2,6 +2,32 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-17 — permission memory (Claude)
+- **Persistent "always allow" rules** so agent tasks stop asking for routine things. Two kinds:
+  `command` (glob over the whole command line, e.g. `ffprobe *`, `git status *`; the command name
+  must be spelled out, no leading wildcard) and `path` (folder prefix, `read` or `write` access,
+  e.g. `D:\Footage`). Stored in `state\desktop\permission-rules.json` with use counts.
+- **Always gated, whatever the rules say:** every `delete` tool call, and commands on the always-ask
+  list (`rm/del/rmdir/format/diskpart/Remove-Item/shutdown/sudo/reg delete/git reset --hard/
+  git push --force/git clean/...`). Whole drives, `Windows`, `Program Files`, `Users` and profile
+  roots cannot be made into folder rules. Path rules never cover commands (commands need a
+  command rule); every path in an operation must be inside the rule's folder.
+- Where: `shared/permission-rule-patterns.mjs` (danger list, read/write kinds, `suggestRule`),
+  `server/src/core/permission-rule-patterns.mjs` (re-export for the task layer — the boundary test
+  forbids task→shared), `server/src/task/permission-rules.mjs` (store + matching, atomic writes),
+  `PermissionPolicy` (`rules` option; checked after session/task grants; `flushRuleMatches()` after
+  a rule is added drains waiting requests). Routes: `GET/POST /api/permission-rules`,
+  `DELETE /api/permission-rules/:id`, `POST /api/permission-rules/suggest`.
+- UI: permission cards get a fourth button **Remember…** (only when a safe rule can be derived)
+  that opens an inline editor prefilled with a suggestion (`ffprobe *`, or the file's parent folder
+  read-only/read-write), saves the rule and then answers "Allow task". **Settings → Permissions**
+  lists rules with use counts, removes them, and adds new ones by hand (Electron main proxies to
+  the Gateway with the access token: IPC `qwen-audio-agent:permission-rules`).
+- Auto-allowed requests are approved silently (`published:false`, as session auto-allow already did);
+  `gateway.log` records `permission_rules.added/removed`. Tests: `server/test/permission-rules.test.mjs`
+  (6), policy test extended, web `permission-actions-render` extended (runs on Windows only).
+  **Needs rebuild** + live check: trigger a `ffprobe` task, click Remember…, run another.
+
 ## 2026-09-17 — window controls; native resize dropped (Claude)
 - Jake's live check of take 2: edge dragging worked, but hovering the edge showed Windows'
   "not allowed" cursor — that is the OS resize border on the transparent frameless window.

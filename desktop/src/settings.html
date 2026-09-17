@@ -77,8 +77,46 @@
           >应用程序</button>
           <button id="health-tab" class="settings-tab" type="button" role="tab"
             aria-selected="false" aria-controls="health-settings" data-settings-tab="health">Health</button>
+          <button id="permissions-tab" class="settings-tab" type="button" role="tab"
+            aria-selected="false" aria-controls="permissions-settings" data-settings-tab="permissions">Permissions</button>
         </nav>
         <div class="settings-groups">
+          <section id="permissions-settings" class="settings-group" role="tabpanel"
+            aria-labelledby="permissions-tab" data-settings-panel="permissions" hidden>
+            <div class="health-toolbar">
+              <span id="permissions-status" role="status">Rules that let agent tasks run without asking</span>
+              <button id="refresh-permissions" type="button" class="text-button">Refresh</button>
+            </div>
+            <form id="permission-rule-form" class="settings-card permission-rule-form">
+              <h2>Add a rule</h2>
+              <div class="permission-rule-fields">
+                <label>Type
+                  <select id="permission-rule-type">
+                    <option value="command">Command</option>
+                    <option value="path">Folder</option>
+                  </select>
+                </label>
+                <label id="permission-rule-pattern-label">Command pattern
+                  <input id="permission-rule-pattern" type="text" spellcheck="false" placeholder="ffprobe *" autocomplete="off">
+                </label>
+                <label id="permission-rule-access-label" hidden>Access
+                  <select id="permission-rule-access">
+                    <option value="read">Read only</option>
+                    <option value="write">Read &amp; write</option>
+                  </select>
+                </label>
+                <label>Note (optional)
+                  <input id="permission-rule-note" type="text" placeholder="clip metadata" autocomplete="off">
+                </label>
+              </div>
+              <div class="permission-rule-submit">
+                <button type="submit" class="primary-button">Add rule</button>
+                <span id="permission-rule-error" class="permission-rule-error" role="alert"></span>
+              </div>
+            </form>
+            <div id="permission-rules" aria-live="polite"></div>
+            <p class="setting-hint">Command rules match the whole command line; <code>*</code> matches anything and the command name must be spelled out. Folder rules cover the folder and everything inside it. Deleting files, and destructive or privileged commands (rm, del, format, shutdown, sudo, git reset --hard, …), always ask regardless of rules. Rules are stored in the Gateway state folder as <code>permission-rules.json</code>.</p>
+          </section>
           <section id="health-settings" class="settings-group" role="tabpanel"
             aria-labelledby="health-tab" data-settings-panel="health" hidden>
             <div class="health-toolbar">

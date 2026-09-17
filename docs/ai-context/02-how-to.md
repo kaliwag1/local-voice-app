@@ -11,10 +11,17 @@ Desktop shortcut **My Local Voice App** (or `Start My Voice App.ps1`). The scrip
 server, loads the selected model with `--context-length 32768` (variable `$modelContextLength`),
 starts the speech service on 8765, frees port 3101, sets `OPENCODE_RUNTIME/OPENCODE_BIN`, launches the app.
 
+## Permission rules
+Settings → Permissions, or **Remember…** on a permission card. File: `state\desktop\permission-rules.json`
+(edit by hand only with the Gateway stopped). Never auto-allowed: deletes and the always-ask command
+list in `shared/permission-rule-patterns.mjs`. To make everything ask again, remove all rules.
+
 ## Tests (Node, no build needed)
 - `cd server && node --test` · `cd desktop && node --test` · `cd web && node --test`
-- Known pre-existing failures: 4 in `desktop/test/settings-config.test.mjs`; in a Linux VM 2 web tests
-  fail only because the Windows-installed rollup binary is missing.
+- Known pre-existing failures: 4 in `desktop/test/settings-config.test.mjs`; 1 in
+  `server/test/acp-backend-adapter.test.mjs` ("recent project Session updates"); in a Linux VM 2 web
+  tests fail only because the Windows-installed rollup binary is missing. The full server suite takes
+  >12 min in the Cowork VM — run the relevant files instead.
 
 ## Commit & back up
 `git commit` on branch `jake/local-voice-app` (app) / `main` (launcher folder), then double-click

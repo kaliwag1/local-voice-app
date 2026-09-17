@@ -1222,6 +1222,42 @@ ipcMain.handle('qwen-audio-agent:health-diagnostics', event => {
   return healthCheckInFlight
 })
 
+// Settings → Permissions. The Settings renderer has no Gateway credential, so
+// the main process proxies the three rule calls to the local Gateway.
+ipcMain.handle('qwen-audio-agent:permission-rules', async (event, request) => {
+  if (!settingsWindow || event.sender !== settingsWindow.webContents) {
+    throw new Error('Only Settings can manage permission rules.')
+  }
+  if (!appOrigin || !isLoopbackUrl(appOrigin)) {
+    return { ok: false, error: 'Permission rules are managed by the local Gateway, which is not running.' }
+  }
+  const headers = { Authorization: `Bearer ${gatewayAccessToken}`, 'content-type': 'application/json' }
+  const action = request?.action
+  try {
+    if (action === 'list') {
+      const response = await fetch(`${appOrigin}/api/permission-rules`, { headers, signal: AbortSignal.timeout(3000) })
+      if (!response.ok) return { ok: false, error: `Gateway answered ${response.status}` }
+      return { ok: true, rules: (await response.json()).rules || [] }
+    }
+    if (action === 'add') {
+      const response = await fetch(`${appOrigin}/api/permission-rules`, {
+        method: 'POST', headers, body: JSON.stringify(request.rule || {}), signal: AbortSignal.timeout(3000),
+      })
+      const payload = await response.json().catch(() => ({}))
+      return response.ok ? { ok: true, rule: payload.rule } : { ok: false, error: payload.error || `Gateway answered ${response.status}` }
+    }
+    if (action === 'remove' && typeof request.id === 'string' && request.id.length <= 60) {
+      const response = await fetch(`${appOrigin}/api/permission-rules/${encodeURIComponent(request.id)}`, {
+        method: 'DELETE', headers, signal: AbortSignal.timeout(3000),
+      })
+      return response.ok ? { ok: true } : { ok: false, error: `Gateway answered ${response.status}` }
+    }
+    return { ok: false, error: 'Unknown request.' }
+  } catch (error) {
+    return { ok: false, error: error.message }
+  }
+})
+
 ipcMain.handle('qwen-audio-agent:open-logs', async event => {
   if (!settingsWindow || event.sender !== settingsWindow.webContents) {
     throw new Error('无权打开日志目录')

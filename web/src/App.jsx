@@ -443,6 +443,31 @@ export default function App() {
     }
   }, [])
 
+  // Save a persistent "always allow" rule, then allow the task that asked.
+  // The Gateway also drains any other waiting request the new rule covers.
+  const rememberPermissionRule = useCallback(async (taskId, permission, rule) => {
+    if (!permission?.id || permission.submitting) return
+    const patch = update => setAgentTasks(items => upsertTask(items, taskId, task => ({
+      ...task, authorization: task.authorization ? { ...task.authorization, ...update } : null,
+    })))
+    patch({ submitting: true, error: null })
+    try {
+      const response = await gatewayFetch('api/permission-rules', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(rule),
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`)
+      patch({ submitting: false })
+      setActivity(t('规则已保存：{pattern}', { pattern: payload.rule?.pattern || rule.pattern }))
+    } catch (error) {
+      patch({ submitting: false, error: error.message })
+      return
+    }
+    await respondToPermission(taskId, permission, 'task')
+  }, [respondToPermission])
+
   const cancelDesktopTask = useCallback(async task => {
     if (task?.phase !== 'scheduled' || !task.id) return
     const cancelTask = gatewayCommandsRef.current?.cancelTask
@@ -1729,6 +1754,7 @@ export default function App() {
         onRespond={decision => respondToPermission(
           agentTask.id, agentTask.authorization, decision,
         )}
+        onRemember={rule => rememberPermissionRule(agentTask.id, agentTask.authorization, rule)}
       />}
       <time>{Math.max(0, Math.round(agentTask.elapsedMs / 1000))}s</time>
     </div>}

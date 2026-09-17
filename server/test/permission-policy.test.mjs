@@ -147,3 +147,38 @@ test('automatic delivery failure publishes the actual request once and does not 
   assert.deepEqual(events, [request('auth-failure')])
   policy.close()
 })
+
+test('stored rules auto-approve matching requests silently and leave the rest to the user', async () => {
+  const { PermissionRules } = await import('../src/task/permission-rules.mjs')
+  const rules = new PermissionRules()
+  rules.add({ type: 'command', pattern: 'ffprobe *' })
+  const policy = new PermissionPolicy({ rules })
+  const events = []
+  const approvals = []
+  const publish = event => events.push(event)
+  const respond = async (taskId, id, decision) => {
+    approvals.push({ taskId, id, decision })
+    policy.forwardBackendEvent(context, {
+      type: 'backend.permission.resolved', permission: { id, status: 'approved' },
+    }, publish, respond)
+  }
+  const withOperation = (id, operation) => ({
+    type: 'backend.permission.requested', permission: { id, status: 'pending', operation },
+  })
+  policy.forwardBackendEvent(context, withOperation('auth_1', { kind: 'execute', command: 'ffprobe -i a.mov' }), publish, respond)
+  await tick(); await tick()
+  assert.deepEqual(approvals.map(item => item.id), ['auth_1'])
+  assert.equal(events.length, 0, 'nothing shown to the user for an auto-allowed request')
+  assert.equal(rules.list()[0].useCount, 1)
+
+  policy.forwardBackendEvent(context, withOperation('auth_2', { kind: 'execute', command: 'ffmpeg -i a.mov' }), publish, respond)
+  policy.forwardBackendEvent(context, withOperation('auth_3', { kind: 'execute', command: 'rm -rf D:\\Footage' }), publish, respond)
+  await tick()
+  assert.deepEqual(events.map(event => event.permission.id), ['auth_2', 'auth_3'], 'unmatched and dangerous requests are shown')
+
+  // Adding a rule drains a waiting request that it covers; the dangerous one stays.
+  rules.add({ type: 'command', pattern: 'ffmpeg *' })
+  policy.flushRuleMatches()
+  await tick(); await tick()
+  assert.deepEqual(approvals.map(item => item.id), ['auth_1', 'auth_2'])
+})

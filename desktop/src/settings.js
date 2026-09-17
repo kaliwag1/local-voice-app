@@ -16,6 +16,7 @@ import { createRealtimeSettingsForm } from './realtime-settings-form.mjs'
 import { updaterButtonState, updaterStatusText } from './update-status.mjs'
 import { isLoopbackUrl } from './security.mjs'
 import { installHealthPanel } from './health-panel.js'
+import { installPermissionsPanel } from './permissions-panel.js'
 import {
   desktopTranslator,
   effectiveDesktopLanguage,
@@ -64,6 +65,7 @@ const submit = form.querySelector('button[type="submit"]')
 const settingsTabs = [...document.querySelectorAll('[data-settings-tab]')]
 const settingsPanels = [...document.querySelectorAll('[data-settings-panel]')]
 const refreshHealth = installHealthPanel(window.qwenAudioAgentDesktop)
+const refreshPermissions = installPermissionsPanel(window.qwenAudioAgentDesktop)
 
 let translate = desktopTranslator('auto', navigator.language)
 const t = (text, params) => translate(text, params)
@@ -115,6 +117,7 @@ function selectSettingsTab(value, { focus = false } = {}) {
   }
   localStorage.setItem('qwen-audio-agent.settings-tab', selected)
   if (selected === 'health') void refreshHealth()
+  if (selected === 'permissions') void refreshPermissions()
 }
 
 for (const tab of settingsTabs) {
