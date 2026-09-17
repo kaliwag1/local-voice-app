@@ -2,17 +2,17 @@
 
 Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 
-## Current status (2026-09-17, after 2nd Claude session)
-- All agreed roadmap items are now built. Jake rebuilt at 03:16 (items 2–4 in the packaged app) but
-  has not yet reported on them; item 5 was added after that rebuild, so **another
-  `Rebuild My Voice App.cmd` is needed**, then `Push To GitHub.cmd` (app + launcher repos).
-- Live checks outstanding: auto-titles / rename (double-click) / pin; Settings → Health;
-  "Look at my screen"; model switch in both `background` and `sequential` mode (sidebar text says
-  which); context-window picker (check `lms ps` shows the new context, and that the launcher keeps it).
-  Permissions: run a task that calls ffprobe → Remember… → Save & allow; re-run: no prompt; Settings → Permissions shows 1 use.
-  Resize: drag any edge/corner of the chat panel; close to orb and reopen — size kept; orb still fixed.
-  Voice picker: pick Alba, listen; drop a WAV in `voices\`, refresh (↻), pick it, listen.
-- Report any breakage in `03-changes.md`. Next work comes from the Ideas list — ask Jake which.
+## Current status (2026-09-17 evening, end of Claude session 2)
+- Working tree clean on `jake/local-voice-app`; check `git log origin/jake/local-voice-app..HEAD` —
+  Jake pushes with `Push To GitHub.cmd` (app + launcher repos).
+- Verified live by Jake today: background/sequential model switch (log shows both), context picker,
+  voice picker (Cosette), panel resize by edge grips, tray "Reset floating orb".
+- Built today, awaiting Jake's rebuild + check: orb semantics (tray/minimise → orb, ✕ → hidden),
+  Settings page fix (was all-Chinese: nested `<form>`), header Settings gear, orb spawns bottom-right,
+  permission memory (Remember… on cards, Settings → Permissions).
+- Still never checked live: auto-titles/rename/pin, Settings → Health, "Look at my screen".
+- Nothing agreed as next. Candidates from Ideas (Jake's earlier interest): footage helpers, search
+  across chats, wake word / hotkey quick-ask, meeting recorder.
 
 ## Agreed next (in this order)
 1. ✅ **Task results with clickable paths** — verified live by Jake (cards keep the file list after the reply).
