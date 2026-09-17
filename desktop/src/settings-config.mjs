@@ -23,6 +23,7 @@ const DEFAULTS = {
   orbSkin: 'fluid',
   autoHideSeconds: 60,
   wakeShortcut: 'CommandOrControl+Shift+Space',
+  micMode: 'always',
   pushToTalkKey: 'F9',
   wakeWordEnabled: false,
   ...realtimeSettingsValues(),
@@ -41,6 +42,7 @@ const CLIENT_SETTING_KEYS = {
   orbSkin: 'QWEN_AUDIO_ORB_SKIN',
   autoHideSeconds: 'QWEN_AUDIO_DESKTOP_AUTO_HIDE_SECONDS',
   wakeShortcut: 'QWEN_AUDIO_DESKTOP_WAKE_SHORTCUT',
+  micMode: 'QWEN_AUDIO_MIC_MODE',
   pushToTalkKey: 'QWEN_AUDIO_PUSH_TO_TALK_KEY',
   wakeWordEnabled: 'QWEN_AUDIO_WAKE_WORD_ENABLED',
   language: 'QWEN_AUDIO_DESKTOP_LANGUAGE',
@@ -117,6 +119,10 @@ function cleanAutoHideSeconds(value) {
 
 // Push-to-talk: '' = off; otherwise the same accelerator grammar as the wake shortcut
 // (F-keys alone, or Ctrl/Alt combos), handled in the panel renderer while it is focused.
+export function cleanMicMode(value) {
+  return String(value || '').trim().toLowerCase() === 'push-to-talk' ? 'push-to-talk' : 'always'
+}
+
 export function cleanPushToTalkKey(value) {
   const key = String(value ?? DEFAULTS.pushToTalkKey).trim()
   if (key === '' || key.toLowerCase() === 'off' || key.toLowerCase() === 'none') return ''
@@ -269,6 +275,7 @@ export function parseSettings(content = '', fallback = {}) {
       'QWEN_AUDIO_DESKTOP_WAKE_SHORTCUT',
       fallback.QWEN_AUDIO_DESKTOP_WAKE_SHORTCUT ?? DEFAULTS.wakeShortcut,
     )),
+    micMode: cleanMicMode(configured(values, 'QWEN_AUDIO_MIC_MODE', fallback.QWEN_AUDIO_MIC_MODE ?? DEFAULTS.micMode)),
     pushToTalkKey: cleanPushToTalkKey(
       Object.hasOwn(values, 'QWEN_AUDIO_PUSH_TO_TALK_KEY')
         ? values.QWEN_AUDIO_PUSH_TO_TALK_KEY
@@ -343,6 +350,7 @@ export function normalizeSettings(settings = {}) {
     wakeShortcut: cleanWakeShortcut(
       settings.wakeShortcut ?? DEFAULTS.wakeShortcut,
     ),
+    micMode: cleanMicMode(settings.micMode ?? DEFAULTS.micMode),
     pushToTalkKey: cleanPushToTalkKey(settings.pushToTalkKey ?? DEFAULTS.pushToTalkKey),
     wakeWordEnabled: Boolean(settings.wakeWordEnabled),
     ...normalizeRealtimeSettings(settings, realtimeProvider),

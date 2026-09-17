@@ -295,8 +295,8 @@ const pushToTalkHook = createPushToTalkHook({
   },
 })
 let pushToTalkGlobal = false
-async function applyPushToTalkKey(accelerator) {
-  pushToTalkGlobal = await pushToTalkHook.setAccelerator(accelerator)
+async function applyPushToTalkKey(accelerator, micMode = 'push-to-talk') {
+  pushToTalkGlobal = await pushToTalkHook.setAccelerator(micMode === 'push-to-talk' ? accelerator : '')
   if (accelerator && !pushToTalkGlobal) {
     logger.warn('push_to_talk.global_unavailable', { accelerator, hint: 'npm install uiohook-napi in desktop/ (Windows), then rebuild' })
   }
@@ -586,6 +586,7 @@ async function loadQwenAudioAgent(window) {
       orbSkin: effectiveOrbSkin(settings.orbSkin),
       autoHideSeconds: settings.autoHideSeconds,
       wakeWordEnabled: settings.wakeWordEnabled,
+      micMode: settings.micMode,
       pushToTalkKey: settings.pushToTalkKey,
       pushToTalkGlobal,
       language: effectiveDesktopLanguage(settings.language, app.getLocale()),
@@ -605,6 +606,7 @@ function sendDesktopClientSettings(window, settings) {
     orbSkin: effectiveOrbSkin(settings.orbSkin),
     autoHideSeconds: settings.autoHideSeconds,
     wakeWordEnabled: settings.wakeWordEnabled,
+    micMode: settings.micMode ?? 'always',
     pushToTalkKey: settings.pushToTalkKey ?? '',
     pushToTalkGlobal,
     language: effectiveDesktopLanguage(settings.language, app.getLocale()),
@@ -1603,7 +1605,9 @@ async function applyDesktopSettings(settings) {
   desktopLanguage = normalized.language
   desktopWakeWordEnabled = normalized.wakeWordEnabled
   desktopWakeWord.setEnabled(desktopWakeWordEnabled)
-  if (previous.pushToTalkKey !== normalized.pushToTalkKey) await applyPushToTalkKey(normalized.pushToTalkKey)
+  if (previous.pushToTalkKey !== normalized.pushToTalkKey || previous.micMode !== normalized.micMode) {
+    await applyPushToTalkKey(normalized.pushToTalkKey, normalized.micMode)
+  }
   createTray()
   if (settingsWindow && !settingsWindow.isDestroyed()) {
     settingsWindow.setTitle(desktopText('设置'))
@@ -1799,7 +1803,7 @@ if (!app.requestSingleInstanceLock()) {
     screen.on('display-added', refreshDesktopTaskSurface)
     screen.on('display-removed', refreshDesktopTaskSurface)
     screen.on('display-metrics-changed', refreshDesktopTaskSurface)
-    await applyPushToTalkKey(initialSettings.pushToTalkKey)
+    await applyPushToTalkKey(initialSettings.pushToTalkKey, initialSettings.micMode)
     if (!desktopPresence.registerShortcut(initialSettings.wakeShortcut)) {
       logger.warn('desktop.wake_shortcut_unavailable', {
         accelerator: initialSettings.wakeShortcut,

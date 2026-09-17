@@ -48,6 +48,7 @@ export function desktopOrbUrl(value, {
   orbSkin,
   autoHideSeconds,
   wakeWordEnabled = false,
+  micMode = 'always',
   pushToTalkKey,
   pushToTalkGlobal = false,
   language = '',
@@ -66,6 +67,7 @@ export function desktopOrbUrl(value, {
     url.searchParams.set('autoHideSeconds', String(autoHideSeconds))
   }
   if (wakeWordEnabled) url.searchParams.set('wakeWordEnabled', 'true')
+  if (micMode === 'push-to-talk') url.searchParams.set('micMode', 'push-to-talk')
   if (typeof pushToTalkKey === 'string') url.searchParams.set('pushToTalkKey', pushToTalkKey)
   if (pushToTalkGlobal) url.searchParams.set('pushToTalkGlobal', 'true')
   if (language) url.searchParams.set('lang', language)

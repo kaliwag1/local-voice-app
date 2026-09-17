@@ -12,6 +12,7 @@ import {
 
 const REALTIME_DEFAULTS = {
   wakeShortcut: 'CommandOrControl+Shift+Space',
+  micMode: 'always',
   pushToTalkKey: 'F9',
   wakeWordEnabled: false,
   realtimeProvider: 'dashscope',

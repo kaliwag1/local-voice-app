@@ -790,6 +790,7 @@ header {
 .status i.error { background: var(--danger); box-shadow: 0 0 12px var(--danger); }
 header button { padding: 9px 13px; border-radius: var(--radius-md); color: var(--text-2); border: 1px solid var(--border); background: var(--fill); }
 header .voice.active { color: var(--text); border-color: var(--accent); background: var(--accent); }
+header .voice[aria-disabled="true"] { opacity: .7; cursor: default; }
 header .voice.waiting { color: var(--accent-text); border-color: var(--accent-border); }
 header .ghost.active { color: var(--text); border-color: var(--accent-border); background: var(--accent-soft); }
 

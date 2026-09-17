@@ -31,6 +31,12 @@ Each entry: what, why, where. Keep this in sync with commits on `jake/local-voic
   **Install on Windows** with `realtime-voice-chat\Install Push To Talk Hook.cmd` (npm install
   can't be done from the Linux VM — it would fetch linux prebuilds), then rebuild. Tests:
   `desktop/test/push-to-talk-hook.test.mjs`.
+- **Microphone mode** (`micMode`: `always` | `push-to-talk`, env `QWEN_AUDIO_MIC_MODE`, Settings →
+  Application → Microphone; the key row only shows in push-to-talk mode). In push-to-talk mode
+  the renderer starts with the mic off and an effect in `App.jsx` forces `voiceEnabled=false`
+  whenever the key isn't down — orb click, header button, ownership hand-back and wake word all
+  get undone — so the mic is live only while the key is held. The header mic button becomes a
+  reminder of the key (`aria-disabled`). The global hook only runs in push-to-talk mode.
 - Settings tab row is 5 columns; skin names English ("Fluid orb", "Liquid gradient orb");
   "Show in Explorer"; wake-word hint gives the pinyin and says the KWS model is Chinese-only.
 

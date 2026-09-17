@@ -342,7 +342,15 @@
               </div>
 
               <div class="setting-row">
-                <label for="ptt-key">按住说话</label>
+                <label for="mic-mode">麦克风</label>
+                <select id="mic-mode">
+                  <option value="always">始终开启</option>
+                  <option value="push-to-talk">按住说话</option>
+                </select>
+              </div>
+
+              <div class="setting-row" id="ptt-row" hidden>
+                <label for="ptt-key">按住说话键</label>
                 <div class="shortcut-field">
                   <input id="ptt-key" type="hidden" value="F9" />
                   <button

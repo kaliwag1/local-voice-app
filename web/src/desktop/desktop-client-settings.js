@@ -13,6 +13,7 @@ export function initialDesktopClientSettings(search = '') {
     }),
     autoHideSeconds: desktopAutoHideSeconds(search),
     wakeWordEnabled: desktopWakeWordEnabled(search),
+    micMode: params.get('micMode') === 'push-to-talk' ? 'push-to-talk' : 'always',
     pushToTalkKey: params.get('pushToTalkKey') ?? 'F9',
     pushToTalkGlobal: params.get('pushToTalkGlobal') === 'true',
     language: params.get('lang') || '',
@@ -30,6 +31,9 @@ export function applyDesktopClientSettings(current, update = {}) {
     wakeWordEnabled: typeof update.wakeWordEnabled === 'boolean'
       ? update.wakeWordEnabled
       : current.wakeWordEnabled,
+    micMode: update.micMode === 'push-to-talk' || update.micMode === 'always'
+      ? update.micMode
+      : current.micMode,
     pushToTalkKey: typeof update.pushToTalkKey === 'string'
       ? update.pushToTalkKey
       : current.pushToTalkKey,

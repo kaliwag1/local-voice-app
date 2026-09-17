@@ -206,9 +206,11 @@ export default function App() {
     orbSkinId,
     autoHideSeconds,
     wakeWordEnabled,
+    micMode,
     pushToTalkKey,
     pushToTalkGlobal,
   } = desktopClientSettings
+  const pushToTalkMode = desktopOrbMode && micMode === 'push-to-talk' && Boolean(pushToTalkKey)
   // `t()` reads the module-level runtime language. Keeping a revision in
   // React state makes a language-only settings update repaint this surface
   // without replacing its Gateway WebSocket or Realtime Session.
@@ -232,10 +234,14 @@ export default function App() {
   const [localVoice, setLocalVoice] = useState('')
   const [localVoiceOptions, setLocalVoiceOptions] = useState([])
   const [localVoiceChanging, setLocalVoiceChanging] = useState(false)
-  const [voiceEnabled, setVoiceEnabled] = useState(() => initialVoiceEnabled({
-    desktopOrbMode,
-    clientType: activeClientType,
-  }))
+  const [voiceEnabled, setVoiceEnabled] = useState(() => (
+    desktopClientSettings.micMode !== 'push-to-talk' && initialVoiceEnabled({
+      desktopOrbMode,
+      clientType: activeClientType,
+    })
+  ))
+  // Push-to-talk: true only while the key is down (global hook or in-window fallback).
+  const [pushToTalkDown, setPushToTalkDown] = useState(false)
   const [waitingForVoice, setWaitingForVoice] = useState(false)
   const [messages, setMessages] = useState([])
   const [activity, setActivity] = useState(t('正在检查后台 Agent'))
@@ -1326,53 +1332,44 @@ export default function App() {
   // nothing so it can't accidentally mute a hands-free session. Losing window focus
   // mid-hold releases too, so the mic never sticks on.
   const pushToTalkHeld = useRef(false)
-  const pushToTalkOpenedMic = useRef(false)
   const voiceControlsRef = useRef({ enableVoice, disableVoice, voiceEnabled })
   voiceControlsRef.current = { enableVoice, disableVoice, voiceEnabled }
   // System-wide hook (main process, uiohook-napi): it tells us held/released directly.
   useEffect(() => {
-    if (!desktopOrbMode || !pushToTalkKey || !pushToTalkGlobal) return undefined
+    if (!pushToTalkMode || !pushToTalkGlobal) return undefined
     const subscribe = window.qwenAudioAgentDesktop?.onPushToTalk
     if (typeof subscribe !== 'function') return undefined
     return subscribe(held => {
       if (held) {
         if (pushToTalkHeld.current) return
         pushToTalkHeld.current = true
-        if (!voiceControlsRef.current.voiceEnabled) {
-          pushToTalkOpenedMic.current = true
-          voiceControlsRef.current.enableVoice()
-        }
+        setPushToTalkDown(true)
+        voiceControlsRef.current.enableVoice()
         return
       }
       if (!pushToTalkHeld.current) return
       pushToTalkHeld.current = false
-      if (pushToTalkOpenedMic.current) {
-        pushToTalkOpenedMic.current = false
-        voiceControlsRef.current.disableVoice()
-      }
+      setPushToTalkDown(false)
+      voiceControlsRef.current.disableVoice()
     })
-  }, [desktopOrbMode, pushToTalkKey, pushToTalkGlobal])
+  }, [pushToTalkMode, pushToTalkGlobal])
 
   // In-window fallback when the native hook isn't installed: only while the panel is focused.
   useEffect(() => {
-    if (!desktopOrbMode || !pushToTalkKey || pushToTalkGlobal) return undefined
+    if (!pushToTalkMode || pushToTalkGlobal) return undefined
     const release = () => {
       if (!pushToTalkHeld.current) return
       pushToTalkHeld.current = false
-      if (pushToTalkOpenedMic.current) {
-        pushToTalkOpenedMic.current = false
-        voiceControlsRef.current.disableVoice()
-      }
+      setPushToTalkDown(false)
+      voiceControlsRef.current.disableVoice()
     }
     const onKeyDown = event => {
       if (event.repeat || !matchesAcceleratorDown(event, pushToTalkKey)) return
       event.preventDefault()
       if (pushToTalkHeld.current) return
       pushToTalkHeld.current = true
-      if (!voiceControlsRef.current.voiceEnabled) {
-        pushToTalkOpenedMic.current = true
-        voiceControlsRef.current.enableVoice()
-      }
+      setPushToTalkDown(true)
+      voiceControlsRef.current.enableVoice()
     }
     const onKeyUp = event => {
       if (!pushToTalkHeld.current || !matchesAcceleratorUp(event, pushToTalkKey)) return
@@ -1388,8 +1385,30 @@ export default function App() {
       window.removeEventListener('blur', release)
       release()
     }
-  }, [desktopOrbMode, pushToTalkKey, pushToTalkGlobal])
-  const pushToTalkHint = desktopOrbMode && pushToTalkKey
+  }, [pushToTalkKey, pushToTalkGlobal, pushToTalkMode])
+
+  // The rule for push-to-talk mode: the mic is live only while the key is down. Anything
+  // else that switches it on (orb click, header button, voice ownership coming back, wake
+  // word) is undone immediately, and switching modes resets the mic to the mode's default.
+  useEffect(() => {
+    if (!desktopOrbMode) return
+    if (pushToTalkMode) {
+      if (voiceEnabled && !pushToTalkDown) {
+        setVoiceEnabled(false)
+        setWaitingForVoice(false)
+      }
+    }
+  }, [pushToTalkMode, pushToTalkDown, voiceEnabled])
+  const previousPushToTalkMode = useRef(pushToTalkMode)
+  useEffect(() => {
+    if (previousPushToTalkMode.current === pushToTalkMode) return
+    previousPushToTalkMode.current = pushToTalkMode
+    if (!desktopOrbMode) return
+    if (pushToTalkMode) disableVoice()
+    else enableVoice()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pushToTalkMode])
+  const pushToTalkHint = pushToTalkMode
     ? `Hold ${acceleratorLabel(pushToTalkKey, navigator.platform)} to talk${pushToTalkGlobal ? ' (works from any app)' : ' (chat window focused)'}`
     : ''
 
@@ -2022,15 +2041,20 @@ export default function App() {
           voiceEnabled ? 'active' : '',
           waitingForVoice ? 'waiting' : '',
         ].filter(Boolean).join(' ')}
-        aria-label={voiceEnabled
+        aria-label={pushToTalkMode ? pushToTalkHint : voiceEnabled
           ? t('麦克风静音')
           : waitingForVoice ? t('取消等待') : t('开启麦克风')}
-        title={compactVoiceControl
+        title={pushToTalkMode ? pushToTalkHint : compactVoiceControl
           ? voiceEnabled
             ? t('麦克风静音')
             : waitingForVoice ? t('取消等待') : t('开启麦克风')
           : undefined}
+        aria-disabled={pushToTalkMode || undefined}
         onClick={() => {
+          if (pushToTalkMode) {
+            setActivity(pushToTalkHint)
+            return
+          }
           if (voiceEnabled || waitingForVoice) {
             disableVoice()
             return

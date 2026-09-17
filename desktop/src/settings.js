@@ -33,6 +33,8 @@ const autoHideSeconds = document.querySelector('#auto-hide-seconds')
 const wakeShortcut = document.querySelector('#wake-shortcut')
 const recordWakeShortcut = document.querySelector('#record-wake-shortcut')
 const resetWakeShortcut = document.querySelector('#reset-wake-shortcut')
+const micMode = document.querySelector('#mic-mode')
+const pttRow = document.querySelector('#ptt-row')
 const pttKey = document.querySelector('#ptt-key')
 const recordPttKey = document.querySelector('#record-ptt-key')
 const clearPttKey = document.querySelector('#clear-ptt-key')
@@ -195,6 +197,11 @@ function renderPttHint(globalHook) {
     ? t('在任何应用中按住此键说话，松开即停止')
     : t('系统级按键钩子未安装（desktop 目录运行 npm install uiohook-napi 后重建），目前仅在聊天窗口获得焦点时有效')
 }
+
+function renderMicMode() {
+  pttRow.hidden = micMode.value !== 'push-to-talk'
+}
+micMode.addEventListener('change', () => { renderMicMode(); updateApplyState() })
 
 function renderPttKey() {
   recordPttKey.textContent = recordingPttKey
@@ -804,6 +811,7 @@ function formSettings() {
     orbSkin: orbSkinSelect.value,
     autoHideSeconds: Number(autoHideSeconds.value),
     wakeShortcut: wakeShortcut.value,
+    micMode: micMode.value,
     pushToTalkKey: pttKey.value,
     wakeWordEnabled: wakeWordEnabled.checked,
     ...realtimeForm.values(),
@@ -823,6 +831,7 @@ function fingerprint(value) {
     orbSkin: value.orbSkin,
     autoHideSeconds: value.autoHideSeconds,
     wakeShortcut: value.wakeShortcut,
+    micMode: value.micMode ?? 'always',
     pushToTalkKey: value.pushToTalkKey ?? '',
     wakeWordEnabled: value.wakeWordEnabled,
     ...realtimeSettingsValues(value),
@@ -1075,6 +1084,8 @@ function render() {
   }
   autoHideSeconds.value = hideValue
   wakeShortcut.value = settings.wakeShortcut
+  micMode.value = settings.micMode === 'push-to-talk' ? 'push-to-talk' : 'always'
+  renderMicMode()
   pttKey.value = settings.pushToTalkKey ?? ''
   recordingPttKey = false
   renderPttKey()
