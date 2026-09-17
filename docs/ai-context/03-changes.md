@@ -2,6 +2,35 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-17 — UI design pass: tokens, dark Settings, "ZD Voice" branding (Claude)
+- **Design tokens.** `web/src/styles.css` `:root` now defines the palette (`--bg/--surface-*`,
+  `--text/--text-2/3/4`, `--accent*`, `--success/--warning/--danger*`, `--border/--fill`),
+  radii (`--radius-sm/md/lg/xl`) and `--focus-ring`; ~300 lines of hard-coded hex/radii were
+  rewritten to them. The orb art (`.stage`, `.fluid`, `.goo`, sprite) keeps its own colours on
+  purpose. `desktop/src/settings.css` defines the **same token names/values** (its old
+  `--page/--panel/--divider/--theme/--text-*` names are aliases) — change both files together.
+- **Settings is dark** and matches the panel (same accent, font, radii). Bundled icons are
+  near-black SVGs, inverted with `filter: invert(.86)`. Primary buttons/tabs use `--on-theme`.
+- **Branding:** header mark "ZD" + "ZD Voice" (eyebrow removed), `<title>`/window title
+  "ZD Voice", tray quit "Quit ZD Voice", `lang="en-GB"` on all three HTML pages.
+  `productName`/exe name deliberately unchanged (launcher path depends on it).
+- **Type:** base 14px, Windows-first stack (`Segoe UI Variable`, `Segoe UI`, Inter, system-ui);
+  no UI text below 11px (8/9/10px → 11px, 11px → 12px).
+- **Panel header:** status pill now shows the state label ("Listening", "Working"…) next to
+  the dot in panel mode; the duplicate header "＋" is gone (sidebar owns New chat; web mode
+  keeps the header button). Window controls 34×30, chat-row actions 26px, task cancel 24px.
+- **Sidebar:** 200px; below 640px panel width it overlays the chat instead of squeezing it.
+  Row actions overlay with a fade (no text reflow on hover); pinned = glyph, not "● ";
+  **F2** renames the focused row (double-click still works).
+- **Transcriber:** dark-styled controls/textarea/drop zone (`audio-transcriber.css`) and a
+  **← Back to chat** button (`AudioTranscriber` takes `onBack`).
+- **Focus:** one global `:focus-visible` ring in both stylesheets; the `outline: none` on the
+  orb stage/controls was removed. Composer textarea intentionally keeps no ring.
+- **i18n:** added `移动端`→Mobile, `关闭`→Close; sprite-skin loader errors are English
+  (`sprite-orb.test.mjs` regexes updated); empty-state example is now a local-PC task.
+- Tests: web 140/142 (the 2 known Linux-VM render failures), desktop settings/i18n/layout/
+  renderer suites green. **Needs Windows rebuild** + a look at panel, Settings, transcriber.
+
 ## 2026-09-17 — Settings page regression fix, header Settings button, orb spawns bottom-right (Claude)
 - **Settings page went all-Chinese with statuses stuck on "checking".** Cause: the new Permissions
   section used a `<form>` inside the page's main `<form>`; browsers drop nested forms, so

@@ -1,22 +1,49 @@
+/* ZD Voice Settings — dark theme sharing the chat panel's tokens (web/src/styles.css).
+   The legacy names (--page, --panel, --divider, --theme, --text-*) are kept as aliases so the
+   rest of this file didn't need rewriting. Change token values in both files together. */
 :root {
-  color-scheme: light;
-  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-  color: #181c1f;
-  background: #f4f5f6;
+  color-scheme: dark;
+  font-family: "Segoe UI Variable Text", "Segoe UI", Inter, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
   font-synthesis: none;
-  --text-primary: #181c1f;
-  --text-secondary: #707375;
-  --text-auxiliary: #9c9ea0;
-  --text-note: #c8cacb;
-  --divider: #e8e8e8;
-  --theme: #040620;
-  --page: #f4f5f6;
-  --panel: #ffffff;
-  --accent: #4433ff;
-  --success: #2fb981;
-  --warning: #f59f11;
-  --danger: #ee4646;
-  --info: #3d82f5;
+
+  --bg: #08090d;
+  --surface-1: #0e1018;
+  --surface-2: #14151d;
+  --surface-3: #1c1d28;
+  --border: rgb(255 255 255 / .09);
+  --border-strong: rgb(255 255 255 / .16);
+  --fill: rgb(255 255 255 / .05);
+  --fill-hover: rgb(255 255 255 / .1);
+  --text: #f2efff;
+  --text-2: #cdc8dc;
+  --text-3: #a5a1b3;
+  --text-4: #8a8698;
+  --accent: #7358e8;
+  --accent-bright: #a38aff;
+  --accent-soft: rgb(115 88 232 / .18);
+  --success: #50dfab;
+  --warning: #f0b869;
+  --danger: #ff7b82;
+  --info: #7fa6e0;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --focus-ring: 2px solid var(--accent-bright);
+
+  /* aliases used throughout this file */
+  --text-primary: var(--text);
+  --text-secondary: var(--text-3);
+  --text-auxiliary: var(--text-4);
+  --text-note: var(--surface-3);
+  --divider: var(--border);
+  --theme: var(--accent);
+  --page: var(--bg);
+  --panel: var(--surface-1);
+  --on-theme: #ffffff;
   --label-width: 88px;
 }
 
@@ -51,12 +78,17 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 dialog:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: var(--focus-ring);
   outline-offset: 2px;
 }
 
 [hidden] {
   display: none !important;
+}
+
+img[src$=".svg"],
+.text-button::before {
+  filter: invert(.86);
 }
 
 main {
@@ -91,17 +123,17 @@ header {
 
 .brand-mark {
   display: grid;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   flex: none;
   place-items: center;
-  border-radius: 12px;
-  background: var(--panel);
-}
-
-.brand-mark img {
-  width: 16px;
-  height: 16px;
+  border-radius: var(--radius-md);
+  color: #fff;
+  background: linear-gradient(145deg, var(--accent-bright), var(--accent));
+  box-shadow: 0 0 20px rgb(115 88 232 / .4);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .02em;
 }
 
 h1 {
@@ -159,7 +191,7 @@ h1 {
   gap: 8px;
   padding: 8px 12px;
   border: 1px solid var(--divider);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--panel);
   white-space: nowrap;
 }
@@ -190,7 +222,7 @@ h1 {
 .runtime-status {
   padding: 16px;
   margin-bottom: 16px;
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--panel);
 }
 
@@ -212,7 +244,7 @@ h2 {
 .runtime-status dl > div {
   min-width: 0;
   padding: 8px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--page);
 }
 
@@ -273,7 +305,7 @@ h2 {
   gap: 8px;
   padding: 4px;
   margin: 0 0 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--panel);
 }
 
@@ -290,7 +322,7 @@ h2 {
   min-height: 40px;
   padding: 8px 6px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   color: var(--text-secondary);
   background: transparent;
   font-size: 14px;
@@ -304,7 +336,7 @@ h2 {
 }
 
 .settings-tab.active {
-  color: var(--panel);
+  color: var(--on-theme);
   background: var(--theme);
 }
 
@@ -323,7 +355,7 @@ h2 {
 
 .settings-card {
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--panel);
 }
 
@@ -373,7 +405,7 @@ select {
   height: 40px;
   padding: 0 12px;
   border: 1px solid var(--divider);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   color: var(--text-primary);
   background: var(--panel);
   font-size: 14px;
@@ -478,7 +510,7 @@ select {
   padding: 0;
   place-items: center;
   border: 1px solid var(--divider);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--panel);
 }
 
@@ -526,7 +558,7 @@ select {
   width: 16px;
   height: 16px;
   border-radius: 9999px;
-  background: var(--panel);
+  background: var(--text-2);
   content: "";
   transition: transform 160ms ease;
 }
@@ -540,7 +572,7 @@ select {
 }
 
 .toggle-switch input:focus-visible + .toggle-track {
-  outline: 2px solid var(--accent);
+  outline: var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -549,7 +581,7 @@ select {
   height: 40px;
   padding: 0 12px;
   border: 1px solid var(--divider);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   color: var(--text-primary);
   background: var(--page);
   font-size: 12px;
@@ -605,7 +637,7 @@ select {
   gap: 12px;
   padding: 0 14px;
   border: 1px solid var(--divider);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   color: var(--text-primary);
   background: var(--panel);
   text-align: left;
@@ -617,7 +649,7 @@ select {
 }
 
 :is(.backend-picker-trigger, .settings-picker-trigger)[aria-expanded="true"] {
-  box-shadow: 0 0 0 3px rgb(68 51 255 / 8%);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 :is(.backend-picker-selection, .settings-picker-selection) {
@@ -677,9 +709,9 @@ select {
   max-height: min(390px, calc(100vh - 220px));
   overflow: hidden;
   border: 1px solid var(--divider);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: var(--panel);
-  box-shadow: 0 16px 40px rgb(4 6 32 / 14%), 0 2px 8px rgb(4 6 32 / 8%);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 45%), 0 2px 8px rgb(0 0 0 / 3%);
 }
 
 :is(.backend-search-wrap, .settings-search-wrap) {
@@ -721,7 +753,7 @@ select {
   gap: 8px;
   padding: 6px 10px;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--panel);
   cursor: pointer;
 }
@@ -731,7 +763,7 @@ select {
 }
 
 .backend-row.selected {
-  background: rgb(68 51 255 / 7%);
+  background: var(--accent-soft);
 }
 
 .backend-row.selected .backend-name::after {
@@ -800,7 +832,7 @@ select {
   min-height: 32px;
   padding: 4px 12px;
   border: 1px solid var(--divider);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   color: var(--text-primary);
   background: var(--panel);
   font-size: 12px;
@@ -864,8 +896,8 @@ footer {
   height: 40px;
   padding: 0 24px;
   border: 0;
-  border-radius: 12px;
-  color: var(--panel);
+  border-radius: var(--radius-lg);
+  color: var(--on-theme);
   background: var(--theme);
   font-size: 14px;
   font-weight: 500;
@@ -873,7 +905,7 @@ footer {
 }
 
 .apply-button:hover:not(:disabled) {
-  background: var(--accent);
+  background: var(--accent-bright);
 }
 
 .apply-button:disabled {
@@ -914,7 +946,7 @@ footer {
   gap: 12px;
   padding: 8px 10px;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--panel);
   text-align: left;
 }
@@ -925,7 +957,7 @@ footer {
 }
 
 .settings-picker-option[aria-selected="true"] {
-  background: rgb(68 51 255 / 7%);
+  background: var(--accent-soft);
 }
 
 .settings-picker-option[aria-selected="true"] .settings-picker-name::after {
@@ -947,7 +979,7 @@ footer {
 .permission-rule-fields label[hidden] { display: none; }
 .permission-rule-fields input, .permission-rule-fields select { min-width: 0; width: 100%; }
 .permission-rule-submit { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
-.permission-rule-error { font-size: 12px; color: #e06c75; }
+.permission-rule-error { font-size: 12px; color: var(--danger); }
 .permission-rule-card { padding: 14px 16px; margin-bottom: 10px; }
 .permission-rule-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .permission-rule-head h2 { margin: 0; font-size: 13px; font-family: ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }

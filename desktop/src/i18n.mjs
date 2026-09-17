@@ -147,7 +147,7 @@ const ENGLISH = {
   '应用': 'Apply',
   '显示悬浮球': 'Show floating orb',
   '设置…': 'Settings…',
-  '退出 Qwen Audio Agent': 'Quit Qwen Audio Agent',
+  '退出 Qwen Audio Agent': 'Quit ZD Voice',
   '打开': 'Open',
   '取消': 'Cancel',
   '打开外部链接': 'Open external link',

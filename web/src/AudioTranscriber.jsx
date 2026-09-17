@@ -4,7 +4,7 @@ import './audio-transcriber.css'
 const ACCEPT = '.wav,.wave,.flac,.ogg,.opus,.mp3,.aiff,.aif'
 const timeLabel = seconds => `${Math.floor(seconds / 60)}:${(seconds % 60).toFixed(2).padStart(5, '0')}`
 
-export default function AudioTranscriber({ bridge = window.qwenAudioAgentDesktop }) {
+export default function AudioTranscriber({ bridge = window.qwenAudioAgentDesktop, onBack }) {
   const [dragging, setDragging] = useState(false)
   const [busy, setBusy] = useState(false)
   const [filename, setFilename] = useState('')
@@ -89,7 +89,15 @@ export default function AudioTranscriber({ bridge = window.qwenAudioAgentDesktop
   return (
     <section className="audio-transcriber" aria-label="Transcribe an audio file">
       <div className="audio-transcriber-heading">
-        <h2>Transcribe audio</h2>
+        <div>
+          {typeof onBack === 'function' && <button
+            type="button"
+            className="audio-transcriber-back"
+            onClick={onBack}
+            aria-label="Back to chat"
+          >← Back to chat</button>}
+          <h2>Transcribe audio</h2>
+        </div>
         <span>Runs locally on this PC</span>
       </div>
       <div
@@ -129,7 +137,7 @@ export default function AudioTranscriber({ bridge = window.qwenAudioAgentDesktop
           <textarea aria-label="Transcript" value={text} onChange={event => setText(event.target.value)} />
           {words.length > 0 && <details className="audio-transcriber-words">
             <summary>Word-by-word timestamps ({words.length})</summary>
-            <button type="button" onClick={saveWordTimings}>Save word timings</button>
+            <p><button type="button" onClick={saveWordTimings}>Save word timings</button></p>
             <div className="audio-transcriber-word-list">
               {words.slice(0, 100).map((item, index) => <div key={`${index}-${item.start}`}>
                 <time>{timeLabel(item.start)}–{timeLabel(item.end)}</time>

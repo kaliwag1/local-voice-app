@@ -666,7 +666,7 @@ function createWindow() {
     alwaysOnTop: true,
     hasShadow: false,
     backgroundColor: '#00000000',
-    title: 'qwen-audio-agent',
+    title: 'ZD Voice',
     autoHideMenuBar: true,
     skipTaskbar: true,
     show: false,

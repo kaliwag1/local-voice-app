@@ -180,11 +180,11 @@ export function resolveAnimations(manifest = {}, frameCount = 0) {
   if (specs && typeof specs === 'object' && !Array.isArray(specs)) {
     for (const [name, spec] of Object.entries(specs)) {
       if (!spec || !Array.isArray(spec.frames) || spec.frames.length === 0) {
-        throw new Error(`皮肤动画 ${name} 至少要包含一帧`)
+        throw new Error(`Skin animation "${name}" needs at least one frame`)
       }
       const fps = spec.fps === undefined ? DEFAULT_FPS : spec.fps
       if (!Number.isFinite(fps) || fps <= 0 || fps > MAX_FPS) {
-        throw new Error(`皮肤动画 ${name} 的 fps 非法`)
+        throw new Error(`Skin animation "${name}" has an invalid fps`)
       }
       const durationMs = 1000 / fps
       animations[name] = {
@@ -201,7 +201,7 @@ export function resolveAnimations(manifest = {}, frameCount = 0) {
         || frame.spriteIndex < 0
         || frame.spriteIndex >= frameCount
       ) {
-        throw new Error(`皮肤动画 ${name} 引用了越界的帧索引`)
+        throw new Error(`Skin animation "${name}" references a frame index out of range`)
       }
     }
   }

@@ -1825,10 +1825,17 @@ export default function App() {
         titleEditFinished.current = ''
         setEditingChat({ sessionId: item.sessionId, title: item.title || '' })
       }}
+      onKeyDown={event => {
+        if (event.key === 'F2') {
+          event.preventDefault()
+          titleEditFinished.current = ''
+          setEditingChat({ sessionId: item.sessionId, title: item.title || '' })
+        }
+      }}
       aria-current={item.sessionId === sessionId ? 'page' : undefined}
-      title={`${item.title || 'New chat'} · Double-click to rename`}
+      title={`${item.title || 'New chat'} · Double-click or F2 to rename`}
     >
-      <span>{item.pinned ? '● ' : ''}{item.title || 'New chat'}</span>
+      <span>{item.pinned && <i className="chat-item-pin" aria-label="Pinned" />}{item.title || 'New chat'}</span>
       {item.updatedAt && <small>{formatChatDate(item.updatedAt)}</small>}
     </button>}
     <div className="chat-item-actions">
@@ -1878,7 +1885,7 @@ export default function App() {
       onPointerCancel={endPanelResize}
     />)}
     <header>
-      <div className="brand"><span>V</span><div>qwen-audio-agent<small>REALTIME VOICE · LIVE</small></div></div>
+      <div className="brand"><span aria-hidden="true">ZD</span><div>ZD Voice</div></div>
       <a
         className="backend"
         href={backend.url || undefined}
@@ -1919,12 +1926,11 @@ export default function App() {
           {t('资料库')}
         </button>
       )}
-      <button
-        className={`ghost${desktopOrbMode ? ' desktop-new-session' : ''}`}
+      {!desktopOrbMode && <button
+        className="ghost"
         onClick={resetSession}
         aria-label={t('新会话')}
-        title={desktopOrbMode ? t('新会话') : undefined}
-      >{desktopOrbMode ? '＋' : t('新会话')}</button>
+      >{t('新会话')}</button>}
       <button
         className={[
           'voice',
@@ -2121,7 +2127,7 @@ export default function App() {
         onStop={stopEverything}
       />}
 
-      {desktopOrbMode && showAudioTranscriber && <AudioTranscriber />}
+      {desktopOrbMode && showAudioTranscriber && <AudioTranscriber onBack={() => setShowAudioTranscriber(false)} />}
 
     </section>
   </main>

@@ -1,7 +1,7 @@
 .audio-transcriber {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 14px;
+  padding: 16px 18px 20px;
   color: inherit;
 }
 
@@ -13,37 +13,81 @@
   gap: 10px;
 }
 
-.audio-transcriber-heading h2 { margin: 0; font-size: 1.1rem; }
+.audio-transcriber-heading { flex-wrap: wrap; }
+.audio-transcriber-heading h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.audio-transcriber-heading > div { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .audio-transcriber-heading span,
-.audio-transcriber-note { opacity: .68; font-size: .85rem; }
+.audio-transcriber-note { color: var(--text-3); font-size: 12px; }
+
+.audio-transcriber-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  background: var(--fill);
+  font-size: 12px;
+}
+.audio-transcriber-back:hover { color: var(--text); background: var(--fill-hover); }
+
 .audio-transcriber-drop {
-  border: 1px dashed currentColor;
-  border-radius: 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
   padding: 28px 14px;
   text-align: center;
-  background: rgba(127, 127, 127, .08);
+  color: var(--text-2);
+  background: var(--fill);
+  transition: background .15s ease, border-color .15s ease;
 }
-.audio-transcriber-drop.is-dragging { background: rgba(90, 140, 255, .2); }
+.audio-transcriber-drop.is-dragging { border-color: var(--accent); background: var(--accent-soft); }
 .audio-transcriber-drop p { margin: 0 0 14px; }
-.audio-transcriber button { cursor: pointer; padding: 7px 11px; }
+
+.audio-transcriber button {
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  background: var(--fill);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.audio-transcriber button:hover:not(:disabled) { color: var(--text); background: var(--fill-hover); }
+.audio-transcriber-drop button { border-color: var(--accent-border); color: var(--text); background: var(--accent-soft); }
+.audio-transcriber-drop button:hover:not(:disabled) { background: var(--accent-soft-hover); }
 .audio-transcriber button:disabled { cursor: wait; opacity: .5; }
 .audio-transcriber-hidden { display: none; }
-.audio-transcriber-error { color: #d85656; }
+.audio-transcriber-error { color: var(--danger-text); font-size: 13px; }
+
 .audio-transcriber-result { display: grid; gap: 8px; min-width: 0; }
-.audio-transcriber-result-heading strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.audio-transcriber-result-heading strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .audio-transcriber-result-heading div { display: flex; gap: 6px; flex-shrink: 0; }
 .audio-transcriber-result textarea {
   box-sizing: border-box;
   width: 100%;
   min-height: 250px;
   resize: vertical;
-  padding: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  background: var(--surface-2);
   font: inherit;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
-.audio-transcriber-words { min-width: 0; }
-.audio-transcriber-words summary { cursor: pointer; margin-bottom: 8px; }
-.audio-transcriber-word-list { max-height: 220px; overflow-y: auto; }
+.audio-transcriber-words { min-width: 0; font-size: 13px; }
+.audio-transcriber-words summary { cursor: pointer; margin-bottom: 8px; color: var(--text-2); }
+.audio-transcriber-word-list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
 .audio-transcriber-word-list > div { display: flex; gap: 12px; padding: 3px 0; }
-.audio-transcriber-word-list time { flex: 0 0 105px; opacity: .7; font-variant-numeric: tabular-nums; }
+.audio-transcriber-word-list time { flex: 0 0 105px; color: var(--text-3); font-variant-numeric: tabular-nums; }

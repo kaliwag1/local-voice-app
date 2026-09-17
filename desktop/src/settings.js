@@ -84,7 +84,7 @@ function applyLanguage(value) {
   translate = desktopTranslator(value, navigator.language)
   const effective = effectiveDesktopLanguage(value, navigator.language)
   localizeDesktopDocument(document, translate, effective)
-  document.title = t('设置')
+  document.title = `ZD Voice — ${t('设置')}`
 }
 
 applyLanguage('auto')

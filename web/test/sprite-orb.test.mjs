@@ -260,12 +260,12 @@ test('merges frame/fps overrides and ignores skin-owned lifecycle fields', () =>
 
   assert.throws(() => resolveAnimations({
     animations: { 'spin': { frames: [] } },
-  }, 72), /至少要包含一帧/)
+  }, 72), /needs at least one frame/)
   assert.throws(() => resolveAnimations({
     animations: { 'spin': { frames: [0], fps: 0 } },
-  }, 72), /fps 非法/)
+  }, 72), /invalid fps/)
   // 默认轨道引用超出小网格帧数时同样失败（与 Codex 行为一致）。
-  assert.throws(() => resolveAnimations({}, 8), /越界的帧索引/)
+  assert.throws(() => resolveAnimations({}, 8), /out of range/)
 })
 
 test('derives sprite geometry from the frame spec with v1/v2 defaults', () => {

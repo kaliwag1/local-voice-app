@@ -35,12 +35,12 @@ export default function DesktopSpriteOrb({
     }
     fetch(`skins/${encodeURIComponent(skin)}/pet.json`)
       .then(response => {
-        if (!response.ok) throw new Error(`皮肤 ${skin} 不存在`)
+        if (!response.ok) throw new Error(`Skin "${skin}" was not found`)
         return response.json()
       })
       .then(manifest => {
         const geometry = spriteGeometry(manifest)
-        if (!geometry) throw new Error(`皮肤 ${skin} 的网格定义非法`)
+        if (!geometry) throw new Error(`Skin "${skin}" has an invalid grid definition`)
         const animations = resolveAnimations(manifest, geometry.frameCount)
         const spritesheet = String(
           manifest.spritesheetPath || 'spritesheet.webp',
@@ -53,12 +53,12 @@ export default function DesktopSpriteOrb({
             image.naturalWidth !== geometry.width * geometry.columns
             || image.naturalHeight !== geometry.height * geometry.rows
           ) {
-            fail(new Error(`皮肤 ${skin} 的贴图尺寸与网格不符`))
+            fail(new Error(`Skin "${skin}": sprite sheet size does not match its grid`))
             return
           }
           setAssets({ image, geometry, animations })
         }
-        image.onerror = () => fail(new Error(`皮肤 ${skin} 的贴图加载失败`))
+        image.onerror = () => fail(new Error(`Skin "${skin}": sprite sheet failed to load`))
         image.src = `skins/${encodeURIComponent(skin)}/${spritesheet}`
       })
       .catch(fail)
