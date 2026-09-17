@@ -1473,6 +1473,38 @@ export default function App() {
     window.qwenAudioAgentDesktop?.dragEnd()
   }
 
+  // Resize grips around the desktop chat panel. Same screen-coordinate drag
+  // contract as the orb move above; the main process clamps and applies it.
+  const panelResize = useRef(null)
+  const beginPanelResize = edges => event => {
+    const bridge = window.qwenAudioAgentDesktop
+    if (!desktopOrbMode || event.button !== 0 || typeof bridge?.panelResizeStart !== 'function') return
+    event.preventDefault()
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    const drag = { pointerId: event.pointerId, ready: false }
+    panelResize.current = drag
+    void bridge.panelResizeStart(edges, event.screenX, event.screenY).then(ok => {
+      if (panelResize.current === drag) drag.ready = Boolean(ok)
+    }).catch(() => { if (panelResize.current === drag) panelResize.current = null })
+  }
+  const movePanelResize = event => {
+    const drag = panelResize.current
+    if (!drag?.ready || drag.pointerId !== event.pointerId) return
+    window.qwenAudioAgentDesktop?.panelResizeMove(event.screenX, event.screenY)
+  }
+  const endPanelResize = event => {
+    const drag = panelResize.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    if (drag.ready) window.qwenAudioAgentDesktop?.panelResizeMove(event.screenX, event.screenY)
+    panelResize.current = null
+    window.qwenAudioAgentDesktop?.panelResizeEnd()
+  }
+  const PANEL_GRIPS = [
+    ['top', { top: true }], ['bottom', { bottom: true }], ['left', { left: true }], ['right', { right: true }],
+    ['top-left', { top: true, left: true }], ['top-right', { top: true, right: true }],
+    ['bottom-left', { bottom: true, left: true }], ['bottom-right', { bottom: true, right: true }],
+  ]
+
   const handleVoiceOrbClick = () => {
     if (voice.state === 'speaking') {
       voice.interrupt()
@@ -1798,6 +1830,15 @@ export default function App() {
   }${
     desktopOrbMode && chatsOpen ? ' with-chat-sidebar' : ''
   }`}>
+    {desktopOrbMode && PANEL_GRIPS.map(([side, edges]) => <div
+      key={side}
+      className={`panel-grip panel-grip-${side}`}
+      aria-hidden="true"
+      onPointerDown={beginPanelResize(edges)}
+      onPointerMove={movePanelResize}
+      onPointerUp={endPanelResize}
+      onPointerCancel={endPanelResize}
+    />)}
     <header>
       <div className="brand"><span>V</span><div>qwen-audio-agent<small>REALTIME VOICE · LIVE</small></div></div>
       <a

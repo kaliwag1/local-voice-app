@@ -12,6 +12,8 @@ import {
   desktopSurfaceLayout,
   desktopSurfaceSize,
   desktopTaskPlacement,
+  desktopPanelSizePreference,
+  desktopResizedPanelBounds,
 } from '../src/desktop-surface-layout.mjs'
 
 const workArea = { x: 0, y: 0, width: 1200, height: 800 }
@@ -195,4 +197,33 @@ test('uses the larger side and caps the stack when neither side fits', () => {
   assert.equal(result.placement, 'above')
   assert.equal(result.bounds.y, 0)
   assert.equal(result.bounds.height, 554)
+})
+
+test('remembered panel size is clamped to the display and falls back to defaults', () => {
+  const workArea = { x: 0, y: 0, width: 1920, height: 1040 }
+  assert.deepEqual(desktopPanelSizePreference(null, workArea), { width: DESKTOP_PANEL_WIDTH, height: DESKTOP_PANEL_HEIGHT })
+  assert.deepEqual(desktopPanelSizePreference({ width: 900, height: 800 }, workArea), { width: 900, height: 800 })
+  assert.deepEqual(desktopPanelSizePreference({ width: 100, height: 5000 }, workArea), { width: 460, height: 1040 })
+  assert.deepEqual(desktopPanelSizePreference({ width: 'x', height: -3 }, workArea), { width: DESKTOP_PANEL_WIDTH, height: DESKTOP_PANEL_HEIGHT })
+})
+
+test('edge grips resize from the grabbed side only, within the work area and minimum size', () => {
+  const workArea = { x: 0, y: 0, width: 1920, height: 1040 }
+  const bounds = { x: 1000, y: 200, width: 700, height: 680 }
+  // Dragging the left edge left grows the panel; the right edge stays fixed.
+  assert.deepEqual(desktopResizedPanelBounds({ bounds, workArea, edges: { left: true }, dx: -100 }),
+    { x: 900, y: 200, width: 800, height: 680 })
+  // Bottom-right corner: x/y stay, size grows.
+  assert.deepEqual(desktopResizedPanelBounds({ bounds, workArea, edges: { right: true, bottom: true }, dx: 50, dy: 60 }),
+    { x: 1000, y: 200, width: 750, height: 740 })
+  // Cannot shrink below the minimum.
+  assert.deepEqual(desktopResizedPanelBounds({ bounds, workArea, edges: { right: true, bottom: true }, dx: -600, dy: -600 }),
+    { x: 1000, y: 200, width: 460, height: 420 })
+  // Cannot leave the display.
+  assert.deepEqual(desktopResizedPanelBounds({ bounds, workArea, edges: { right: true, bottom: true }, dx: 5000, dy: 5000 }),
+    { x: 1000, y: 200, width: 920, height: 840 })
+  assert.deepEqual(desktopResizedPanelBounds({ bounds, workArea, edges: { top: true, left: true }, dx: -5000, dy: -5000 }),
+    { x: 0, y: 0, width: 1700, height: 880 })
+  // No edges → unchanged.
+  assert.deepEqual(desktopResizedPanelBounds({ bounds, workArea, dx: 100, dy: 100 }), bounds)
 })

@@ -271,6 +271,31 @@ html[data-desktop="orb"] #root {
   box-shadow: inset 0 1px #ffffff12;
 }
 
+/* Invisible resize grips around the desktop chat panel (fallback for when the
+   OS gives the transparent frameless window no native resize border). They sit
+   above everything, are kept out of the header's window-drag region, and are
+   thin enough not to steal clicks from the sidebar or composer. */
+.panel-grip {
+  position: absolute;
+  z-index: 40;
+  -webkit-app-region: no-drag;
+  touch-action: none;
+  background: transparent;
+}
+.panel-grip-top, .panel-grip-bottom { left: 12px; right: 12px; height: 6px; cursor: ns-resize; }
+.panel-grip-left, .panel-grip-right { top: 12px; bottom: 12px; width: 6px; cursor: ew-resize; }
+.panel-grip-top { top: 0; }
+.panel-grip-bottom { bottom: 0; }
+.panel-grip-left { left: 0; }
+.panel-grip-right { right: 0; }
+.panel-grip-top-left, .panel-grip-top-right, .panel-grip-bottom-left, .panel-grip-bottom-right {
+  width: 14px; height: 14px;
+}
+.panel-grip-top-left { top: 0; left: 0; cursor: nwse-resize; }
+.panel-grip-bottom-right { bottom: 0; right: 0; cursor: nwse-resize; }
+.panel-grip-top-right { top: 0; right: 0; cursor: nesw-resize; }
+.panel-grip-bottom-left { bottom: 0; left: 0; cursor: nesw-resize; }
+
 .desktop-conversation-panel header {
   height: 56px;
   padding: 0 13px;

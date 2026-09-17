@@ -2,6 +2,23 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-17 — resizable chat panel, take 2 (Claude)
+- Take 1 (`49c161c`, reverted in `597da75`): a single lower-left grip that "wouldn't drag", bundled
+  with a chat-list CSS change that broke spacing. This take touches **no chat-list CSS**.
+- Two mechanisms, belt and braces: (1) on entering panel mode `main.mjs` calls `setMinimumSize`
+  (460×420) / `setMaximumSize(workArea)` / `setResizable(true)` so the OS offers native edge
+  resizing on the frameless window; back to `setResizable(false)` + orb minimum before collapsing
+  to the orb, so the orb stays fixed-size. (2) Eight invisible 6 px grips (`.panel-grip-*`) around
+  the panel in `App.jsx`, `-webkit-app-region: no-drag`, using the same screenX/screenY pointer
+  IPC pattern as the orb move (`panel-resize-start` invoke → `-move` send → `-end`), applied
+  with `desktopResizedPanelBounds()` (grabbed sides move, opposite sides fixed, clamped to the
+  work area). Native wins where it works; grips cover the rest.
+- Size is remembered in `ui-state.json` (`conversationPanelSize`, debounced 400 ms, from the
+  window's `resized` event or the grip's end) and restored via `desktopPanelSizePreference()`.
+  Tests in `desktop-surface-layout.test.mjs`. **Needs Windows rebuild**; if native edge resize
+  misbehaves on the transparent window (Electron warns it can on some platforms), remove the
+  `setResizable(true)` line and keep the grips.
+
 ## 2026-09-17 — voice picker (Claude)
 - **Voice** picker in the sidebar under the context picker. Pocket TTS presets (jean default, alba,
   marius, javert, fantine, cosette, eponine, azelma) plus any WAV/MP3/FLAC/OGG clip in

@@ -2,6 +2,8 @@ export const DESKTOP_ORB_WIDTH = 172
 export const DESKTOP_ORB_HEIGHT = 204
 export const DESKTOP_PANEL_WIDTH = 700
 export const DESKTOP_PANEL_HEIGHT = 680
+export const DESKTOP_PANEL_MIN_WIDTH = 460
+export const DESKTOP_PANEL_MIN_HEIGHT = 420
 export const DESKTOP_TASK_SURFACE_WIDTH = 360
 export const DESKTOP_TASK_CARD_HEIGHT = 54
 export const DESKTOP_TASK_CARD_GAP = 8
@@ -37,6 +39,38 @@ export function desktopConversationPanelBounds({
     width: panelWidth,
     height: panelHeight,
   }
+}
+
+// A remembered panel size, clamped so the panel always fits the display it
+// will open on. Anything unusable falls back to the default size.
+export function desktopPanelSizePreference(saved, workArea) {
+  const width = Number.isInteger(saved?.width) && saved.width > 0 ? saved.width : DESKTOP_PANEL_WIDTH
+  const height = Number.isInteger(saved?.height) && saved.height > 0 ? saved.height : DESKTOP_PANEL_HEIGHT
+  return {
+    width: clamp(width, Math.min(DESKTOP_PANEL_MIN_WIDTH, workArea.width), workArea.width),
+    height: clamp(height, Math.min(DESKTOP_PANEL_MIN_HEIGHT, workArea.height), workArea.height),
+  }
+}
+
+// Fallback for the page's own edge grips (used when the OS does not offer a
+// native resize border on the transparent frameless window). `edges` names
+// which sides the pointer grabbed; `dx`/`dy` is how far it moved from the
+// grab point. Grabbed sides move, the opposite sides stay put, and the panel
+// never leaves the work area.
+export function desktopResizedPanelBounds({ bounds, workArea, edges = {}, dx = 0, dy = 0 }) {
+  const moveX = Math.round(Number(dx) || 0)
+  const moveY = Math.round(Number(dy) || 0)
+  let left = bounds.x
+  let right = bounds.x + bounds.width
+  let top = bounds.y
+  let bottom = bounds.y + bounds.height
+  const minWidth = Math.min(DESKTOP_PANEL_MIN_WIDTH, workArea.width)
+  const minHeight = Math.min(DESKTOP_PANEL_MIN_HEIGHT, workArea.height)
+  if (edges.left) left = clamp(left + moveX, workArea.x, right - minWidth)
+  if (edges.right) right = clamp(right + moveX, left + minWidth, workArea.x + workArea.width)
+  if (edges.top) top = clamp(top + moveY, workArea.y, bottom - minHeight)
+  if (edges.bottom) bottom = clamp(bottom + moveY, top + minHeight, workArea.y + workArea.height)
+  return { x: left, y: top, width: right - left, height: bottom - top }
 }
 
 export function desktopOrbAnchorFromPanel({ bounds, workArea }) {

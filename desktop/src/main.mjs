@@ -55,9 +55,13 @@ import {
 import {
   DESKTOP_ORB_HEIGHT,
   DESKTOP_ORB_WIDTH,
+  DESKTOP_PANEL_MIN_HEIGHT,
+  DESKTOP_PANEL_MIN_WIDTH,
   desktopConversationPanelBounds,
   desktopOrbAnchorFromPanel,
   desktopOrbBounds,
+  desktopPanelSizePreference,
+  desktopResizedPanelBounds,
   desktopSurfaceLayout,
 } from './desktop-surface-layout.mjs'
 import { createOrbPlacement } from './orb-placement.mjs'
@@ -191,6 +195,22 @@ let desktopTaskCount = 0
 let desktopTaskPlacement = 'below'
 let desktopOrbOffsetX = 0
 let desktopSurfaceMode = 'orb'
+// Last size the user gave the chat panel (persisted in ui-state.json).
+let desktopPanelSize = desktopSettingsStore.loadUiState().conversationPanelSize || null
+let desktopPanelSizeSaveTimer = null
+let panelResizeDrag = null
+
+function rememberDesktopPanelSize(bounds) {
+  desktopPanelSize = { width: bounds.width, height: bounds.height }
+  clearTimeout(desktopPanelSizeSaveTimer)
+  desktopPanelSizeSaveTimer = setTimeout(() => {
+    try {
+      desktopSettingsStore.saveUiState({ conversationPanelSize: desktopPanelSize })
+    } catch (error) {
+      logger.warn('desktop.panel_size_save_failed', { error: error?.message })
+    }
+  }, 400)
+}
 let reconnectTimer = null
 let embeddedGateway = null
 let borrowedGatewayOrigin = ''
@@ -671,6 +691,11 @@ function createWindow() {
   window.once('ready-to-show', () => window.show())
   window.on('blur', () => {
     orbShell.cancelDrag()
+    panelResizeDrag = null
+  })
+  // Native edge resizing (Windows/macOS emit 'resized' when the drag ends).
+  window.on('resized', () => {
+    if (desktopSurfaceMode === 'panel' && !panelResizeDrag) rememberDesktopPanelSize(window.getBounds())
   })
   window.on('closed', () => {
     if (mainWindow === window) {
@@ -795,9 +820,20 @@ function setDesktopSurfaceMode(requestedMode) {
     mainWindow.setVisibleOnAllWorkspaces(false)
     mainWindow.setSkipTaskbar(false)
     mainWindow.setHasShadow(true)
+    // Let the OS resize the panel from its edges while it is open. The limits
+    // are per display, so set them here rather than at window creation. On
+    // platforms where a transparent frameless window has no native resize
+    // border, the page's own edge grips (panel-resize IPC below) take over.
+    mainWindow.setMinimumSize(
+      Math.min(DESKTOP_PANEL_MIN_WIDTH, workArea.width),
+      Math.min(DESKTOP_PANEL_MIN_HEIGHT, workArea.height),
+    )
+    mainWindow.setMaximumSize(workArea.width, workArea.height)
+    mainWindow.setResizable(true)
     mainWindow.setBounds(desktopConversationPanelBounds({
       orbBounds,
       workArea,
+      ...desktopPanelSizePreference(desktopPanelSize, workArea),
     }), false)
     mainWindow.show()
     mainWindow.focus()
@@ -807,6 +843,12 @@ function setDesktopSurfaceMode(requestedMode) {
   const workArea = screen.getDisplayMatching(bounds).workArea
   const orbAnchor = desktopOrbAnchorFromPanel({ bounds, workArea })
   desktopSurfaceMode = 'orb'
+  panelResizeDrag = null
+  // The orb must never be resizable; restore the fixed-size contract before
+  // shrinking back to it.
+  mainWindow.setResizable(false)
+  mainWindow.setMinimumSize(DESKTOP_ORB_WIDTH, DESKTOP_ORB_HEIGHT)
+  mainWindow.setMaximumSize(workArea.width, workArea.height)
   mainWindow.setSkipTaskbar(true)
   mainWindow.setHasShadow(false)
   configureOrbWindow(mainWindow)
@@ -863,6 +905,54 @@ function updateDesktopTaskSurface(value) {
     mainWindow.setBounds(next, false)
   }
 }
+
+// Edge/corner grips drawn by the page. Same screen-coordinate drag contract
+// as the orb (orb-shell.mjs), but resizing instead of moving.
+ipcMain.handle('qwen-audio-agent:panel-resize-start', (event, request) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents || desktopSurfaceMode !== 'panel') return false
+  const edges = request?.edges
+  if (!edges || !['left', 'right', 'top', 'bottom'].some(side => edges[side] === true)) return false
+  panelResizeDrag = {
+    bounds: mainWindow.getBounds(),
+    edges: { left: !!edges.left, right: !!edges.right, top: !!edges.top, bottom: !!edges.bottom },
+    pointerX: Number(request.x),
+    pointerY: Number(request.y),
+  }
+  if (!Number.isFinite(panelResizeDrag.pointerX) || !Number.isFinite(panelResizeDrag.pointerY)) {
+    panelResizeDrag = null
+    return false
+  }
+  return true
+})
+
+ipcMain.on('qwen-audio-agent:panel-resize-move', (event, point) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents || desktopSurfaceMode !== 'panel' || !panelResizeDrag) return
+  const x = Number(point?.x)
+  const y = Number(point?.y)
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return
+  const workArea = screen.getDisplayMatching(panelResizeDrag.bounds).workArea
+  const next = desktopResizedPanelBounds({
+    bounds: panelResizeDrag.bounds,
+    workArea,
+    edges: panelResizeDrag.edges,
+    dx: x - panelResizeDrag.pointerX,
+    dy: y - panelResizeDrag.pointerY,
+  })
+  const current = mainWindow.getBounds()
+  if (next.x === current.x && next.y === current.y && next.width === current.width && next.height === current.height) return
+  try {
+    mainWindow.setBounds(next, false)
+  } catch (error) {
+    logger.warn('desktop.panel_resize_failed', { error: error?.message })
+    panelResizeDrag = null
+  }
+})
+
+ipcMain.on('qwen-audio-agent:panel-resize-end', event => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) return
+  panelResizeDrag = null
+  if (desktopSurfaceMode === 'panel') rememberDesktopPanelSize(mainWindow.getBounds())
+})
 
 ipcMain.on('qwen-audio-agent:task-card-count', (event, value) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) return
