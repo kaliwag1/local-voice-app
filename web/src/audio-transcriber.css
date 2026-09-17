@@ -1,0 +1,49 @@
+.audio-transcriber {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  color: inherit;
+}
+
+.audio-transcriber-heading,
+.audio-transcriber-result-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.audio-transcriber-heading h2 { margin: 0; font-size: 1.1rem; }
+.audio-transcriber-heading span,
+.audio-transcriber-note { opacity: .68; font-size: .85rem; }
+.audio-transcriber-drop {
+  border: 1px dashed currentColor;
+  border-radius: 12px;
+  padding: 28px 14px;
+  text-align: center;
+  background: rgba(127, 127, 127, .08);
+}
+.audio-transcriber-drop.is-dragging { background: rgba(90, 140, 255, .2); }
+.audio-transcriber-drop p { margin: 0 0 14px; }
+.audio-transcriber button { cursor: pointer; padding: 7px 11px; }
+.audio-transcriber button:disabled { cursor: wait; opacity: .5; }
+.audio-transcriber-hidden { display: none; }
+.audio-transcriber-error { color: #d85656; }
+.audio-transcriber-result { display: grid; gap: 8px; min-width: 0; }
+.audio-transcriber-result-heading strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.audio-transcriber-result-heading div { display: flex; gap: 6px; flex-shrink: 0; }
+.audio-transcriber-result textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 250px;
+  resize: vertical;
+  padding: 12px;
+  font: inherit;
+  line-height: 1.5;
+}
+
+.audio-transcriber-words { min-width: 0; }
+.audio-transcriber-words summary { cursor: pointer; margin-bottom: 8px; }
+.audio-transcriber-word-list { max-height: 220px; overflow-y: auto; }
+.audio-transcriber-word-list > div { display: flex; gap: 12px; padding: 3px 0; }
+.audio-transcriber-word-list time { flex: 0 0 105px; opacity: .7; font-variant-numeric: tabular-nums; }

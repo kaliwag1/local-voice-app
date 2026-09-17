@@ -167,6 +167,7 @@ export function spawnAndProxy(command, args = [], {
         env: childEnv,
         stdio: inheritStdio ? 'inherit' : 'pipe',
         windowsVerbatimArguments,
+        windowsHide: true,
       })
     } catch {
       finish(1)

@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 function sendPoint(channel, x, y) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) return
@@ -39,6 +39,18 @@ contextBridge.exposeInMainWorld('qwenAudioAgentDesktop', {
     'qwen-audio-agent:conversation-session-set',
     sessionId,
   ),
+  listLocalModels: () => ipcRenderer.invoke('qwen-audio-agent:local-models-list'),
+  switchLocalModel: modelKey => ipcRenderer.invoke(
+    'qwen-audio-agent:local-model-switch',
+    modelKey,
+  ),
+  pickAudioFile: () => ipcRenderer.invoke('qwen-audio-agent:audio-file-pick'),
+  transcribeAudioFile: file => {
+    const filePath = typeof file?.path === 'string'
+      ? file.path
+      : webUtils.getPathForFile(file)
+    return ipcRenderer.invoke('qwen-audio-agent:audio-file-transcribe', filePath)
+  },
   enterHide: options => ipcRenderer.invoke(
     'qwen-audio-agent:enter-hide',
     options,

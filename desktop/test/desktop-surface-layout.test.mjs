@@ -20,7 +20,7 @@ test('expands a panel from the orb anchor and restores that anchor', () => {
   const orbBounds = { x: 1000, y: 40, width: 172, height: 204 }
   const panel = desktopConversationPanelBounds({ orbBounds, workArea })
   assert.deepEqual(panel, {
-    x: 732,
+    x: orbBounds.x + orbBounds.width - DESKTOP_PANEL_WIDTH,
     y: 40,
     width: DESKTOP_PANEL_WIDTH,
     height: DESKTOP_PANEL_HEIGHT,

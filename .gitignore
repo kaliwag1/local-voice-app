@@ -43,3 +43,6 @@ sidecars/tsnet/dist/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
 docs/.vitepress/.site/
+
+# local diagnostics / backups
+_diag/

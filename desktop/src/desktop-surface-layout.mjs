@@ -1,6 +1,6 @@
 export const DESKTOP_ORB_WIDTH = 172
 export const DESKTOP_ORB_HEIGHT = 204
-export const DESKTOP_PANEL_WIDTH = 440
+export const DESKTOP_PANEL_WIDTH = 700
 export const DESKTOP_PANEL_HEIGHT = 680
 export const DESKTOP_TASK_SURFACE_WIDTH = 360
 export const DESKTOP_TASK_CARD_HEIGHT = 54
