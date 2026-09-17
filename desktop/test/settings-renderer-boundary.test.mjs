@@ -62,3 +62,15 @@ test('desktop settings consumes Gateway pairing codes but does not issue them', 
   assert.doesNotMatch(html, /create-gateway-pairing-code/)
   assert.doesNotMatch(preload, /pairing-tickets/)
 })
+
+test('settings.html has a single form (a nested form is dropped by the parser and crashed the page)', () => {
+  const html = readFileSync(resolve(sourceDirectory, 'settings.html'), 'utf8')
+  assert.equal((html.match(/<form\b/g) || []).length, 1)
+  // Every element the optional panels look up must exist.
+  for (const id of ['permissions-settings', 'permissions-status', 'permission-rules', 'refresh-permissions',
+    'permission-rule-type', 'permission-rule-pattern', 'permission-rule-pattern-label', 'permission-rule-access-label',
+    'permission-rule-access', 'permission-rule-note', 'permission-rule-error', 'permission-rule-add',
+    'health-settings', 'health-results', 'health-updated', 'refresh-health']) {
+    assert.ok(html.includes(`id="${id}"`), id)
+  }
+})

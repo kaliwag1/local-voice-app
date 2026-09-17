@@ -2,6 +2,17 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-17 — Settings page regression fix, header Settings button, orb spawns bottom-right (Claude)
+- **Settings page went all-Chinese with statuses stuck on "checking".** Cause: the new Permissions
+  section used a `<form>` inside the page's main `<form>`; browsers drop nested forms, so
+  `permissions-panel.js` hit a null element, threw, and `settings.js` died before translating the
+  page. Fix: plain `<div>` + `type="button"`; `settings.js` now installs optional panels in
+  try/catch; `settings-renderer-boundary.test.mjs` asserts a single `<form>` and every panel id.
+- **Settings gear** in the panel header (left of minimise), same `open-settings` IPC as the orb.
+- **Orb spawn position**: `orb-placement.defaultPosition` is now bottom-right of the work area
+  (margin), and collapsing the panel always puts the orb there on the panel's display instead of at
+  the panel's top-right corner. Only a drag records a saved position now.
+
 ## 2026-09-17 — orb semantics (Claude, after Jake's live check)
 - Root cause of "orb doesn't show": not a window-state bug. `config.env` has
   `QWEN_AUDIO_OPEN_CONVERSATION_ON_START=1` so the app opens in **panel** mode, and the tray item only

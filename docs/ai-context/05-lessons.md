@@ -25,3 +25,6 @@
 14. **Never minimise a window that may later go `skipTaskbar`/hidden without un-minimising it
     first.** On Windows `restore()` is a no-op while hidden and `show()` keeps the minimised state:
     the orb becomes invisible with nothing to click. `show()` then `restore()`; tray has a reset.
+15. **`settings.html` is one big `<form>`.** Any panel added inside it must not use a nested `<form>`
+    or `type="submit"` buttons — the parser drops the inner form, the script crashes on a null
+    element, and the whole page appears untranslated with statuses stuck on "checking".

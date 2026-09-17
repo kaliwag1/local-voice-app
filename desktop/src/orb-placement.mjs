@@ -33,14 +33,15 @@ export function createOrbPlacement({
   const displays = () => (getDisplays() || [])
     .filter(display => display && display.workArea)
 
-  // The default anchor is the display's work area, top-right with a margin:
-  // workArea already excludes the menu bar and the Dock, so the orb never
+  // The default anchor is the display's work area, bottom-right with a
+  // margin (Jake's choice: the orb should always come back to the same spot).
+  // workArea already excludes the taskbar/menu bar/Dock, so the orb never
   // lands under system chrome, and no display is hard-coded.
   const defaultPosition = display => {
     const { workArea } = display
     return {
       x: workArea.x + workArea.width - orbSize.width - margin,
-      y: workArea.y + margin,
+      y: workArea.y + workArea.height - orbSize.height - margin,
     }
   }
 

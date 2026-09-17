@@ -315,6 +315,8 @@ html[data-desktop="orb"] #root {
   stroke: currentColor;
   stroke-width: 1.2;
 }
+.desktop-conversation-panel header .window-control-settings { margin-right: 6px; }
+.desktop-conversation-panel header .window-control-settings svg { width: 14px; height: 14px; }
 .desktop-conversation-panel header .window-control:hover { background: #ffffff14; color: #f2efff; }
 .desktop-conversation-panel header .window-control-close:hover { background: #d8323c; color: white; }
 .panel-grip-top-left { top: 0; left: 0; cursor: nwse-resize; }

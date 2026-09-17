@@ -24,11 +24,11 @@ function placement({ displays = [PRIMARY], saved = null, onSave } = {}) {
   })
 }
 
-test('defaults to the primary work area top-right with a margin', () => {
+test('defaults to the primary work area bottom-right with a margin', () => {
   const position = placement().initialPosition()
   assert.deepEqual(position, {
     x: PRIMARY.workArea.x + PRIMARY.workArea.width - ORB.width - ORB_PLACEMENT_MARGIN,
-    y: PRIMARY.workArea.y + ORB_PLACEMENT_MARGIN,
+    y: PRIMARY.workArea.y + PRIMARY.workArea.height - ORB.height - ORB_PLACEMENT_MARGIN,
   })
 })
 
@@ -71,7 +71,7 @@ test('a corrupt state store falls back to the default anchor', () => {
       throw new Error('corrupt ui-state.json')
     },
   }).initialPosition()
-  assert.equal(position.y, PRIMARY.workArea.y + ORB_PLACEMENT_MARGIN)
+  assert.equal(position.y, PRIMARY.workArea.y + PRIMARY.workArea.height - ORB.height - ORB_PLACEMENT_MARGIN)
 })
 
 test('records the dragged position with its hosting display', () => {

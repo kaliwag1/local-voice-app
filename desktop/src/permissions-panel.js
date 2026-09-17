@@ -6,7 +6,6 @@ export function installPermissionsPanel(bridge) {
   const status = document.querySelector('#permissions-status')
   const list = document.querySelector('#permission-rules')
   const refreshButton = document.querySelector('#refresh-permissions')
-  const form = document.querySelector('#permission-rule-form')
   const type = document.querySelector('#permission-rule-type')
   const pattern = document.querySelector('#permission-rule-pattern')
   const patternLabel = document.querySelector('#permission-rule-pattern-label')
@@ -98,8 +97,7 @@ export function installPermissionsPanel(bridge) {
   }
   type.addEventListener('change', syncType)
   syncType()
-  form.addEventListener('submit', event => {
-    event.preventDefault()
+  const submitRule = () => {
     void mutate({
       action: 'add',
       rule: {
@@ -109,7 +107,14 @@ export function installPermissionsPanel(bridge) {
         note: note.value,
       },
     })
-  })
+  }
+  document.querySelector('#permission-rule-add').addEventListener('click', submitRule)
+  // Enter in the pattern field adds the rule without touching the settings form.
+  for (const field of [pattern, note]) {
+    field.addEventListener('keydown', event => {
+      if (event.key === 'Enter') { event.preventDefault(); submitRule() }
+    })
+  }
   refreshButton.addEventListener('click', refresh)
   return refresh
 }

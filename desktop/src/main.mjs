@@ -58,7 +58,6 @@ import {
   DESKTOP_PANEL_MIN_HEIGHT,
   DESKTOP_PANEL_MIN_WIDTH,
   desktopConversationPanelBounds,
-  desktopOrbAnchorFromPanel,
   desktopOrbBounds,
   desktopPanelSizePreference,
   desktopResizedPanelBounds,
@@ -844,8 +843,12 @@ function setDesktopSurfaceMode(requestedMode) {
     return desktopSurfaceMode
   }
 
-  const workArea = screen.getDisplayMatching(bounds).workArea
-  const orbAnchor = desktopOrbAnchorFromPanel({ bounds, workArea })
+  const display = screen.getDisplayMatching(bounds)
+  const workArea = display.workArea
+  // The orb always returns to the same spot — bottom-right of the display the
+  // panel was on — rather than wherever the panel's corner happened to be.
+  // A dragged orb position is only recorded by the drag itself (orb-shell).
+  const orbAnchor = { ...orbPlacement.defaultPosition(display), width: DESKTOP_ORB_WIDTH, height: DESKTOP_ORB_HEIGHT }
   desktopSurfaceMode = 'orb'
   panelResizeDrag = null
   desktopPanelMaximized = null
@@ -856,7 +859,6 @@ function setDesktopSurfaceMode(requestedMode) {
   mainWindow.setSkipTaskbar(true)
   mainWindow.setHasShadow(false)
   configureOrbWindow(mainWindow)
-  orbPlacement.recordPosition(orbAnchor)
   const layout = desktopSurfaceLayout({
     bounds: orbAnchor,
     currentTaskCount: 0,

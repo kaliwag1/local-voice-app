@@ -87,7 +87,7 @@
               <span id="permissions-status" role="status">Rules that let agent tasks run without asking</span>
               <button id="refresh-permissions" type="button" class="text-button">Refresh</button>
             </div>
-            <form id="permission-rule-form" class="settings-card permission-rule-form">
+            <div id="permission-rule-form" class="settings-card permission-rule-form">
               <h2>Add a rule</h2>
               <div class="permission-rule-fields">
                 <label>Type
@@ -110,10 +110,10 @@
                 </label>
               </div>
               <div class="permission-rule-submit">
-                <button type="submit" class="primary-button">Add rule</button>
+                <button id="permission-rule-add" type="button" class="text-button">Add rule</button>
                 <span id="permission-rule-error" class="permission-rule-error" role="alert"></span>
               </div>
-            </form>
+            </div>
             <div id="permission-rules" aria-live="polite"></div>
             <p class="setting-hint">Command rules match the whole command line; <code>*</code> matches anything and the command name must be spelled out. Folder rules cover the folder and everything inside it. Deleting files, and destructive or privileged commands (rm, del, format, shutdown, sudo, git reset --hard, …), always ask regardless of rules. Rules are stored in the Gateway state folder as <code>permission-rules.json</code>.</p>
           </section>

@@ -64,8 +64,18 @@ const openLogs = document.querySelector('#open-logs')
 const submit = form.querySelector('button[type="submit"]')
 const settingsTabs = [...document.querySelectorAll('[data-settings-tab]')]
 const settingsPanels = [...document.querySelectorAll('[data-settings-panel]')]
-const refreshHealth = installHealthPanel(window.qwenAudioAgentDesktop)
-const refreshPermissions = installPermissionsPanel(window.qwenAudioAgentDesktop)
+// A broken optional panel must not take the whole Settings page down (the
+// page would then stay untranslated with every status stuck on "checking").
+function installOptionalPanel(install) {
+  try {
+    return install(window.qwenAudioAgentDesktop)
+  } catch (error) {
+    console.error('settings panel failed to install', error)
+    return async () => {}
+  }
+}
+const refreshHealth = installOptionalPanel(installHealthPanel)
+const refreshPermissions = installOptionalPanel(installPermissionsPanel)
 
 let translate = desktopTranslator('auto', navigator.language)
 const t = (text, params) => translate(text, params)

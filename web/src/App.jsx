@@ -1955,6 +1955,12 @@ export default function App() {
       </button>
       {desktopOrbMode && <div className="window-controls" role="group" aria-label="Window">
         <button
+          className="ghost window-control window-control-settings"
+          onClick={() => window.qwenAudioAgentDesktop?.openSettings?.()}
+          title="Settings"
+          aria-label="Settings"
+        ><OrbControlIcon type="settings" /></button>
+        <button
           className="ghost window-control"
           onClick={() => void window.qwenAudioAgentDesktop?.panelWindowControl?.('minimize')}
           title="Minimise to the floating orb"
