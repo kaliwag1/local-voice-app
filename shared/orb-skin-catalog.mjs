@@ -3,8 +3,8 @@
 // 导入皮肤是 sprite 类型（Codex pet 包渲染），两者共用同一选择链。
 
 export const BUILTIN_ORB_SKINS = Object.freeze([
-  Object.freeze({ id: 'fluid', type: 'theme', displayName: '流光声波球' }),
-  Object.freeze({ id: 'goo', type: 'theme', displayName: '液态渐变球' }),
+  Object.freeze({ id: 'fluid', type: 'theme', displayName: 'Fluid orb' }),
+  Object.freeze({ id: 'goo', type: 'theme', displayName: 'Liquid gradient orb' }),
 ])
 
 export const ORB_SKIN_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/i

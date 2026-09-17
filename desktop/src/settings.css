@@ -301,8 +301,8 @@ h2 {
 
 .settings-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
   padding: 4px;
   margin: 0 0 16px;
   border-radius: var(--radius-lg);
@@ -320,12 +320,13 @@ h2 {
 
 .settings-tab {
   min-height: 40px;
-  padding: 8px 6px;
+  padding: 8px 4px;
+  white-space: nowrap;
   border: 0;
   border-radius: var(--radius-lg);
   color: var(--text-secondary);
   background: transparent;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   line-height: 20px;
 }
