@@ -2,6 +2,18 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-17 — local Health page
+- Added **Settings → Health** with manual refresh and a 10-second refresh while visible.
+  Shows LM Studio's loaded models and actual loaded context (separate from model maximum),
+  NVIDIA device-wide VRAM used/free/total, Gateway and voice connection status, OpenCode API
+  health and agent connection, and local listening ports. Missing readings are explicitly unavailable.
+- Diagnostics only contact loopback services; subprocesses use `windowsHide` and timeouts.
+  Uses the configured speech/Gateway URLs and `OPENCODE_PORT`, and LM Studio's v1 API with
+  v0 fallback. Source: `health-diagnostics.mjs`, `health-panel.js`, Settings HTML/CSS/JS and IPC.
+- Unit tests and renderer dependency checks pass. Live collector read Gemma with 32768 context,
+  NVIDIA memory, and speech listening successfully. Packaged Settings still needs a Windows rebuild
+  and visual check. No services were started or restarted for diagnosis.
+
 ## 2026-09-17 — chat titles (Claude draft finished with Codex)
 - **Local chat titles** — the Gateway asks the selected LM Studio model for a short title after the
   first user/assistant exchange, stores it in each session's `meta.json`, and retries briefly if

@@ -96,6 +96,7 @@ import { DesktopPresence } from './desktop-presence.mjs'
 import { createElectronGatewayCredentialStore } from './gateway-credential-store.mjs'
 import { createLocalModelSwitcher } from './local-model-switch.mjs'
 import { transcribeAudioFile } from './local-audio-transcription.mjs'
+import { collectHealthDiagnostics } from './health-diagnostics.mjs'
 
 // Gateway paths belong to the Gateway; Electron's userData holds only client
 // preferences, credentials, presentation assets and local caches.
@@ -1025,6 +1026,27 @@ ipcMain.handle('qwen-audio-agent:settings-runtime-status', async event => {
     throw new Error('无权读取运行状态')
   }
   return runtimeStatus()
+})
+
+let healthCheckInFlight = null
+ipcMain.handle('qwen-audio-agent:health-diagnostics', event => {
+  if (!settingsWindow || event.sender !== settingsWindow.webContents) {
+    throw new Error('Only Settings can read health diagnostics.')
+  }
+  if (!healthCheckInFlight) {
+    const settings = desktopSettingsStore.load()
+    healthCheckInFlight = Promise.all([
+      collectHealthDiagnostics({
+        lmUrl: process.env.QWEN_AUDIO_LOCAL_LLM_BASE_URL || 'http://127.0.0.1:1234/v1',
+        speechUrl: settings.speechToSpeechRealtimeUrl || 'ws://127.0.0.1:8765/v1/realtime',
+        gatewayUrl: appOrigin,
+        openCodeUrl: `http://127.0.0.1:${process.env.OPENCODE_PORT || '4096'}`,
+      }),
+      isLoopbackUrl(appOrigin) ? runtimeStatus().catch(() => null) : Promise.resolve(null),
+    ]).then(([diagnostics, runtime]) => ({ ...diagnostics, runtime }))
+      .finally(() => { healthCheckInFlight = null })
+  }
+  return healthCheckInFlight
 })
 
 ipcMain.handle('qwen-audio-agent:open-logs', async event => {

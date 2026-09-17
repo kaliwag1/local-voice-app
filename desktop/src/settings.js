@@ -15,6 +15,7 @@ import { realtimeSettingsValues } from '../../shared/realtime-provider-definitio
 import { createRealtimeSettingsForm } from './realtime-settings-form.mjs'
 import { updaterButtonState, updaterStatusText } from './update-status.mjs'
 import { isLoopbackUrl } from './security.mjs'
+import { installHealthPanel } from './health-panel.js'
 import {
   desktopTranslator,
   effectiveDesktopLanguage,
@@ -62,6 +63,7 @@ const openLogs = document.querySelector('#open-logs')
 const submit = form.querySelector('button[type="submit"]')
 const settingsTabs = [...document.querySelectorAll('[data-settings-tab]')]
 const settingsPanels = [...document.querySelectorAll('[data-settings-panel]')]
+const refreshHealth = installHealthPanel(window.qwenAudioAgentDesktop)
 
 let translate = desktopTranslator('auto', navigator.language)
 const t = (text, params) => translate(text, params)
@@ -112,6 +114,7 @@ function selectSettingsTab(value, { focus = false } = {}) {
     panel.hidden = panel.dataset.settingsPanel !== selected
   }
   localStorage.setItem('qwen-audio-agent.settings-tab', selected)
+  if (selected === 'health') void refreshHealth()
 }
 
 for (const tab of settingsTabs) {

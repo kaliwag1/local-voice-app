@@ -75,8 +75,19 @@
             aria-controls="app-settings"
             data-settings-tab="app"
           >应用程序</button>
+          <button id="health-tab" class="settings-tab" type="button" role="tab"
+            aria-selected="false" aria-controls="health-settings" data-settings-tab="health">Health</button>
         </nav>
         <div class="settings-groups">
+          <section id="health-settings" class="settings-group" role="tabpanel"
+            aria-labelledby="health-tab" data-settings-panel="health" hidden>
+            <div class="health-toolbar">
+              <span id="health-updated" role="status">Local service diagnostics</span>
+              <button id="refresh-health" type="button" class="text-button">Refresh</button>
+            </div>
+            <div id="health-results" aria-live="polite"></div>
+            <p class="setting-hint">Refreshes every 10 seconds while this page is visible. GPU memory is total device usage, including other apps. A listening port alone does not confirm a service is ready.</p>
+          </section>
           <section
             id="voice-settings"
             class="settings-group"
