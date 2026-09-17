@@ -256,6 +256,7 @@ export default function App() {
   const messagesRef = useRef(null)
   const stickToBottom = useRef(true)
   const orbDrag = useRef(null)
+  const panelResizeDrag = useRef(null)
   const spriteAnimationCueId = useRef(0)
   const runtimeReadyAnnounced = useRef(false)
   const previousTasksActive = useRef(false)
@@ -1375,6 +1376,35 @@ export default function App() {
     window.qwenAudioAgentDesktop?.dragEnd()
   }
 
+  const beginPanelResize = event => {
+    const bridge = window.qwenAudioAgentDesktop
+    if (event.button !== 0 || typeof bridge?.panelResizeStart !== 'function') return
+    event.preventDefault()
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    const drag = { pointerId: event.pointerId, x: event.screenX, y: event.screenY, bounds: null }
+    panelResizeDrag.current = drag
+    void bridge.panelResizeStart().then(bounds => {
+      if (panelResizeDrag.current === drag) drag.bounds = bounds
+    }).catch(() => { panelResizeDrag.current = null })
+  }
+
+  const movePanelResize = event => {
+    const drag = panelResizeDrag.current
+    if (!drag?.bounds || drag.pointerId !== event.pointerId) return
+    window.qwenAudioAgentDesktop?.panelResize(
+      drag.bounds.width + drag.x - event.screenX,
+      drag.bounds.height + event.screenY - drag.y,
+    )
+  }
+
+  const endPanelResize = event => {
+    const drag = panelResizeDrag.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    movePanelResize(event)
+    panelResizeDrag.current = null
+    window.qwenAudioAgentDesktop?.panelResizeEnd()
+  }
+
   const handleVoiceOrbClick = () => {
     if (voice.state === 'speaking') {
       voice.interrupt()
@@ -1890,5 +1920,15 @@ export default function App() {
       {desktopOrbMode && showAudioTranscriber && <AudioTranscriber />}
 
     </section>
+    {desktopOrbMode && <button
+      type="button"
+      className="desktop-panel-resize"
+      title="Drag to resize the chat window"
+      aria-label="Resize chat window"
+      onPointerDown={beginPanelResize}
+      onPointerMove={movePanelResize}
+      onPointerUp={endPanelResize}
+      onPointerCancel={endPanelResize}
+    >↙</button>}
   </main>
 }

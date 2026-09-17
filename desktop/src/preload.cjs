@@ -35,6 +35,12 @@ contextBridge.exposeInMainWorld('qwenAudioAgentDesktop', {
     'qwen-audio-agent:surface-set',
     mode,
   ),
+  panelResizeStart: () => ipcRenderer.invoke('qwen-audio-agent:panel-resize-start'),
+  panelResize: (width, height) => {
+    if (!Number.isFinite(width) || !Number.isFinite(height)) return
+    ipcRenderer.send('qwen-audio-agent:panel-resize', { width, height })
+  },
+  panelResizeEnd: () => ipcRenderer.send('qwen-audio-agent:panel-resize-end'),
   setConversationSession: sessionId => ipcRenderer.invoke(
     'qwen-audio-agent:conversation-session-set',
     sessionId,

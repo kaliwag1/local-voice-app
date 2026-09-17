@@ -2,6 +2,15 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-17 — resizable chat panel and clearer chat actions
+- Added a lower-left drag handle to resize the transparent desktop conversation panel without
+  changing the orb's fixed size. The panel stays within the display and remembers its size in
+  `ui-state.json` (`desktop-surface-layout.mjs`, `main.mjs`, `preload.cjs`, `App.jsx`). Native edge
+  resizing is not suitable for this shared transparent Electron window.
+- Moved rename, pin, archive and delete controls below each chat title, and hid them while the
+  rename input is active, so the field no longer overlaps the controls (`styles.css`). The desktop
+  rebuild and live Windows check remain.
+
 ## 2026-09-17 — chat titles (Claude draft finished with Codex)
 - **Local chat titles** — the Gateway asks the selected LM Studio model for a short title after the
   first user/assistant exchange, stores it in each session's `meta.json`, and retries briefly if

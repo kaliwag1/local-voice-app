@@ -2,6 +2,8 @@ export const DESKTOP_ORB_WIDTH = 172
 export const DESKTOP_ORB_HEIGHT = 204
 export const DESKTOP_PANEL_WIDTH = 700
 export const DESKTOP_PANEL_HEIGHT = 680
+export const DESKTOP_PANEL_MIN_WIDTH = 460
+export const DESKTOP_PANEL_MIN_HEIGHT = 420
 export const DESKTOP_TASK_SURFACE_WIDTH = 360
 export const DESKTOP_TASK_CARD_HEIGHT = 54
 export const DESKTOP_TASK_CARD_GAP = 8
@@ -34,6 +36,25 @@ export function desktopConversationPanelBounds({
       workArea.y,
       workArea.y + workArea.height - panelHeight,
     ),
+    width: panelWidth,
+    height: panelHeight,
+  }
+}
+
+// The transparent orb window cannot use native edge resizing reliably. The
+// panel's lower-left drag handle changes its bounds while keeping its right
+// edge (and therefore its orb anchor) fixed.
+export function desktopResizedPanelBounds({ bounds, workArea, width, height }) {
+  const right = Math.min(bounds.x + bounds.width, workArea.x + workArea.width)
+  const maxWidth = Math.max(1, right - workArea.x)
+  const maxHeight = Math.max(1, workArea.y + workArea.height - bounds.y)
+  const panelWidth = clamp(Math.round(Number(width) || bounds.width),
+    Math.min(DESKTOP_PANEL_MIN_WIDTH, maxWidth), maxWidth)
+  const panelHeight = clamp(Math.round(Number(height) || bounds.height),
+    Math.min(DESKTOP_PANEL_MIN_HEIGHT, maxHeight), maxHeight)
+  return {
+    x: right - panelWidth,
+    y: bounds.y,
     width: panelWidth,
     height: panelHeight,
   }

@@ -9,6 +9,7 @@ import {
   desktopConversationPanelBounds,
   desktopOrbAnchorFromPanel,
   desktopOrbBounds,
+  desktopResizedPanelBounds,
   desktopSurfaceLayout,
   desktopSurfaceSize,
   desktopTaskPlacement,
@@ -51,6 +52,19 @@ test('keeps the conversation panel and restored orb inside a small display', () 
     y: 20,
     width: DESKTOP_ORB_WIDTH,
     height: DESKTOP_ORB_HEIGHT,
+  })
+})
+
+test('resizes the panel from its lower-left corner without moving its orb anchor off screen', () => {
+  const bounds = { x: 400, y: 40, width: 700, height: 680 }
+  assert.deepEqual(desktopResizedPanelBounds({ bounds, workArea, width: 900, height: 720 }), {
+    x: 200, y: 40, width: 900, height: 720,
+  })
+  assert.deepEqual(desktopResizedPanelBounds({ bounds, workArea, width: 120, height: 100 }), {
+    x: 640, y: 40, width: 460, height: 420,
+  })
+  assert.deepEqual(desktopResizedPanelBounds({ bounds, workArea, width: 2000, height: 2000 }), {
+    x: 0, y: 40, width: 1100, height: 760,
   })
 })
 
