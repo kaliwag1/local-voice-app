@@ -628,6 +628,10 @@ function createTray() {
       click: () => showDesktop('tray'),
     },
     {
+      label: 'Reset floating orb',
+      click: () => resetDesktopOrb(),
+    },
+    {
       label: desktopText('设置…'),
       click: () => showSettings(),
     },
@@ -835,6 +839,7 @@ function setDesktopSurfaceMode(requestedMode) {
     }), false)
     mainWindow.show()
     mainWindow.focus()
+    logger.info('desktop.surface', { mode: 'panel', bounds: mainWindow.getBounds() })
     return desktopSurfaceMode
   }
 
@@ -843,7 +848,8 @@ function setDesktopSurfaceMode(requestedMode) {
   desktopSurfaceMode = 'orb'
   panelResizeDrag = null
   desktopPanelMaximized = null
-  if (mainWindow.isMinimized()) mainWindow.restore()
+  // Never carry a minimised state into orb mode (see DesktopPresence.wake).
+  if (mainWindow.isMinimized()) { mainWindow.show(); mainWindow.restore() }
   mainWindow.setMinimumSize(DESKTOP_ORB_WIDTH, DESKTOP_ORB_HEIGHT)
   mainWindow.setMaximumSize(workArea.width, workArea.height)
   mainWindow.setSkipTaskbar(true)
@@ -861,7 +867,39 @@ function setDesktopSurfaceMode(requestedMode) {
   desktopOrbOffsetX = layout.orbOffsetX
   sendDesktopTaskPlacement()
   mainWindow.setBounds(layout.bounds, false)
+  logger.info('desktop.surface', { mode: 'orb', bounds: layout.bounds, visible: mainWindow.isVisible() })
   return desktopSurfaceMode
+}
+
+// Safety net for a lost orb (off-screen after a display change, or stuck in
+// an odd window state): put it back at the default spot on the primary
+// display, unminimised, in orb mode, visible.
+function resetDesktopOrb() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    showDesktop('tray')
+    return
+  }
+  const display = screen.getPrimaryDisplay()
+  const position = orbPlacement.defaultPosition(display)
+  panelResizeDrag = null
+  desktopPanelMaximized = null
+  mainWindow.show()
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  desktopSurfaceMode = 'orb'
+  mainWindow.setSkipTaskbar(true)
+  mainWindow.setHasShadow(false)
+  configureOrbWindow(mainWindow)
+  mainWindow.setMinimumSize(DESKTOP_ORB_WIDTH, DESKTOP_ORB_HEIGHT)
+  mainWindow.setMaximumSize(display.workArea.width, display.workArea.height)
+  desktopTaskPlacement = 'below'
+  desktopOrbOffsetX = 0
+  mainWindow.setBounds({ x: position.x, y: position.y, width: DESKTOP_ORB_WIDTH, height: DESKTOP_ORB_HEIGHT }, false)
+  orbPlacement.recordPosition({ ...position, width: DESKTOP_ORB_WIDTH, height: DESKTOP_ORB_HEIGHT })
+  if (mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+    mainWindow.webContents.send('qwen-audio-agent:surface-reset', { mode: 'orb' })
+  }
+  desktopPresence.wake('reset')
+  logger.info('desktop.surface', { mode: 'orb', reset: true, bounds: mainWindow.getBounds(), visible: mainWindow.isVisible() })
 }
 
 function updateDesktopTaskSurface(value) {
@@ -928,6 +966,7 @@ ipcMain.handle('qwen-audio-agent:panel-window-control', (event, action) => {
   if (!mainWindow || event.sender !== mainWindow.webContents || desktopSurfaceMode !== 'panel') return { ok: false }
   if (action === 'minimize') {
     mainWindow.minimize()
+    logger.info('desktop.panel_minimized')
     return { ok: true }
   }
   if (action === 'maximize') {

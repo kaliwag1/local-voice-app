@@ -261,6 +261,7 @@ export default function App() {
   const [desktopSurfaceMode, setDesktopSurfaceMode] = useState(
     initialDesktopSurfaceMode,
   )
+  const [panelMaximized, setPanelMaximized] = useState(false)
   const [lastInteractionAt, setLastInteractionAt] = useState(Date.now)
   const activeVoiceResponse = useRef('')
   const currentTurnId = useRef('')
@@ -1317,6 +1318,17 @@ export default function App() {
     setActivity(t('待命'))
   }
 
+  // Tray → "Reset floating orb": main has already put the window into orb
+  // shape; mirror that here so the page draws the orb, not the panel.
+  useEffect(() => {
+    const subscribe = window.qwenAudioAgentDesktop?.onSurfaceReset
+    if (typeof subscribe !== 'function') return undefined
+    return subscribe(payload => {
+      setDesktopSurfaceMode(payload?.mode === 'panel' ? 'panel' : 'orb')
+      setPanelMaximized(false)
+    })
+  }, [])
+
   // The switcher loads the new model while the old one keeps serving; the
   // services only go down for the short "swapping" phase, so voice is left
   // alone until then.
@@ -1501,7 +1513,6 @@ export default function App() {
   // Resize grips around the desktop chat panel. Same screen-coordinate drag
   // contract as the orb move above; the main process clamps and applies it.
   const panelResize = useRef(null)
-  const [panelMaximized, setPanelMaximized] = useState(false)
   const beginPanelResize = edges => event => {
     const bridge = window.qwenAudioAgentDesktop
     if (!desktopOrbMode || event.button !== 0 || typeof bridge?.panelResizeStart !== 'function') return

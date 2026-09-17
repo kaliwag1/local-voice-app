@@ -22,3 +22,6 @@
     frameless transparent window gives Windows' resize border, which shows the "not allowed"
     cursor on hover. Resize from page grips via IPC (`panel-resize-*`) instead — same pattern as
     the orb drag, which is known to work.
+14. **Never minimise a window that may later go `skipTaskbar`/hidden without un-minimising it
+    first.** On Windows `restore()` is a no-op while hidden and `show()` keeps the minimised state:
+    the orb becomes invisible with nothing to click. `show()` then `restore()`; tray has a reset.

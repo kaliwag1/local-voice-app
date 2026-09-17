@@ -2,6 +2,16 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-17 — lost orb fix + "Reset floating orb" (Claude)
+- Jake: orb no longer appeared, even from the tray. Log showed no errors. Likely chain: panel
+  **minimise** button → window minimised → inactivity collapse/hide to orb (skipTaskbar) →
+  `restore()` on a hidden window is a no-op on Windows and `show()` keeps it minimised → invisible
+  with no taskbar button. Fix: `DesktopPresence.wake()` now `show()`s before `restore()`; the orb
+  branch of `setDesktopSurfaceMode` does the same. `desktop.wake` / `desktop.surface` /
+  `desktop.panel_minimized` log events added so the next one is diagnosable.
+- Tray menu → **Reset floating orb** (`resetDesktopOrb()` in `main.mjs`): unminimise, force orb
+  mode, default position on the primary display, tell the renderer (`surface-reset` IPC).
+
 ## 2026-09-17 — permission memory (Claude)
 - **Persistent "always allow" rules** so agent tasks stop asking for routine things. Two kinds:
   `command` (glob over the whole command line, e.g. `ffprobe *`, `git status *`; the command name

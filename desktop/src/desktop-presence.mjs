@@ -24,9 +24,21 @@ export class DesktopPresence {
   wake(reason = 'shortcut') {
     const window = this.getWindow?.()
     if (!window || window.isDestroyed()) return false
-    if (window.isMinimized()) window.restore()
+    // Order matters on Windows: restore() is a no-op on a hidden window, and
+    // show() on a minimised one leaves it minimised — with no taskbar button
+    // in orb mode, that is an invisible window nobody can get back.
+    if (window.isMinimized()) {
+      window.show()
+      window.restore()
+    }
     window.show()
     window.focus()
+    this.logger?.info?.('desktop.wake', {
+      reason,
+      minimized: window.isMinimized(),
+      visible: window.isVisible?.(),
+      bounds: window.getBounds?.(),
+    })
     if (this.state === 'hidden') {
       this.send('waking', reason)
     } else {
