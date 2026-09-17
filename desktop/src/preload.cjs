@@ -47,6 +47,19 @@ contextBridge.exposeInMainWorld('qwenAudioAgentDesktop', {
     'qwen-audio-agent:local-model-switch',
     modelKey,
   ),
+  setLocalModelContext: contextLength => ipcRenderer.invoke(
+    'qwen-audio-agent:local-model-context',
+    contextLength,
+  ),
+  onLocalModelProgress: callback => {
+    if (typeof callback !== 'function') return () => {}
+    const listener = (_event, progress) => callback(progress)
+    ipcRenderer.on('qwen-audio-agent:local-model-progress', listener)
+    return () => ipcRenderer.removeListener(
+      'qwen-audio-agent:local-model-progress',
+      listener,
+    )
+  },
   pickAudioFile: () => ipcRenderer.invoke('qwen-audio-agent:audio-file-pick'),
   transcribeAudioFile: file => {
     const filePath = typeof file?.path === 'string'

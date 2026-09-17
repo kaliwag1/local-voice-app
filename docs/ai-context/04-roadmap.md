@@ -2,19 +2,22 @@
 
 Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 
-## Current status (2026-09-17, end of Claude session)
-- Working tree clean on `jake/local-voice-app`; **9 commits not yet pushed** — Jake runs `Push To GitHub.cmd`.
-- Items 2–4 below are built and tested but **not yet rebuilt/verified on Windows**: Jake runs
-  `Rebuild My Voice App.cmd`, then checks auto-titles / rename (double-click) / pin, the Settings
-  health page, and the "Look at my screen" button. Report any breakage in `03-changes.md`.
-- Only remaining agreed item: 5 (background model switching).
+## Current status (2026-09-17, after 2nd Claude session)
+- All agreed roadmap items are now built. Jake rebuilt at 03:16 (items 2–4 in the packaged app) but
+  has not yet reported on them; item 5 was added after that rebuild, so **another
+  `Rebuild My Voice App.cmd` is needed**, then `Push To GitHub.cmd` (app + launcher repos).
+- Live checks outstanding: auto-titles / rename (double-click) / pin; Settings → Health;
+  "Look at my screen"; model switch in both `background` and `sequential` mode (sidebar text says
+  which); context-window picker (check `lms ps` shows the new context, and that the launcher keeps it).
+- Report any breakage in `03-changes.md`. Next work comes from the Ideas list — ask Jake which.
 
 ## Agreed next (in this order)
 1. ✅ **Task results with clickable paths** — verified live by Jake (cards keep the file list after the reply).
-2. 🔧 **Chat titles** — coded and tested; awaiting Jake's Windows rebuild and live check.
-3. 🔧 **Health panel** — built; collector tested against local services. Awaiting Windows rebuild and Settings UI check.
-4. 🔧 **Screen-aware questions** — app picker, MCP capture and composer preview built; awaiting Windows rebuild and screenshot-to-answer check.
-5. ⏳ **Background model switching** — preload the new model while the old one serves; context-size setting in UI.
+2. 🔧 **Chat titles** — coded and tested; in the 03:16 build, awaiting Jake's live check.
+3. 🔧 **Health panel** — built; collector tested against local services. In the 03:16 build, awaiting Settings UI check.
+4. 🔧 **Screen-aware questions** — built; in the 03:16 build, awaiting screenshot-to-answer check.
+5. 🔧 **Background model switching** — built and unit-tested (preload when VRAM allows, services stay up
+   during the load, context-size picker). Awaiting rebuild + live check.
 
 ## Done
 - ✅ Git + GitHub backup (two private repos), config snapshot.

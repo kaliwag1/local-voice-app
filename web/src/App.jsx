@@ -191,6 +191,12 @@ function upsertTask(items, taskId, update, fallback) {
   return next
 }
 
+function formatContextLength(tokens) {
+  const value = Number(tokens)
+  if (!Number.isFinite(value) || value <= 0) return ''
+  return value % 1024 === 0 ? `${value / 1024}k tokens` : `${value} tokens`
+}
+
 export default function App() {
   const [desktopClientSettings, setDesktopClientSettings] = useState(
     () => initialDesktopClientSettings(window.location.search),
@@ -215,6 +221,11 @@ export default function App() {
   const [localModelKey, setLocalModelKey] = useState('')
   const [localModelError, setLocalModelError] = useState('')
   const [localModelSwitching, setLocalModelSwitching] = useState(false)
+  const [localModelProgress, setLocalModelProgress] = useState(null)
+  const [localModelWarning, setLocalModelWarning] = useState('')
+  const [localContextLength, setLocalContextLength] = useState(0)
+  const [localContextOptions, setLocalContextOptions] = useState([])
+  const [localContextChanging, setLocalContextChanging] = useState(false)
   const [voiceEnabled, setVoiceEnabled] = useState(() => initialVoiceEnabled({
     desktopOrbMode,
     clientType: activeClientType,
@@ -292,6 +303,8 @@ export default function App() {
       }
       setLocalModels(result.models || [])
       setLocalModelKey(result.selectedModelKey || '')
+      if (Number.isFinite(result.contextLength)) setLocalContextLength(result.contextLength)
+      if (Array.isArray(result.contextLengthOptions)) setLocalContextOptions(result.contextLengthOptions)
       setLocalModelError('')
     } catch (error) {
       setLocalModelError(error.message || 'Local models are unavailable.')
@@ -1274,14 +1287,28 @@ export default function App() {
     setActivity(t('待命'))
   }
 
+  // The switcher loads the new model while the old one keeps serving; the
+  // services only go down for the short "swapping" phase, so voice is left
+  // alone until then.
+  useEffect(() => {
+    const subscribe = window.qwenAudioAgentDesktop?.onLocalModelProgress
+    if (typeof subscribe !== 'function') return undefined
+    return subscribe(progress => {
+      setLocalModelProgress(progress)
+      if (progress?.phase === 'swapping') disableVoice()
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const changeLocalModel = async modelKey => {
     if (!modelKey || modelKey === localModelKey || localModelSwitching) return
     const switchModel = window.qwenAudioAgentDesktop?.switchLocalModel
     if (typeof switchModel !== 'function') return
-    disableVoice()
     setLocalModelError('')
+    setLocalModelWarning('')
+    setLocalModelProgress(null)
     setLocalModelSwitching(true)
-    setActivity('Switching local model…')
+    setActivity('Loading local model…')
     try {
       const result = await switchModel(modelKey)
       if (!result?.ok) {
@@ -1289,6 +1316,7 @@ export default function App() {
         setActivity('Model switch failed')
       } else {
         setLocalModelKey(result.selectedModelKey || modelKey)
+        setLocalModelWarning(result.warning || '')
         setActivity('Local model changed')
       }
     } catch (error) {
@@ -1296,8 +1324,47 @@ export default function App() {
       setActivity('Model switch failed')
     } finally {
       setLocalModelSwitching(false)
+      setLocalModelProgress(null)
     }
   }
+
+  const changeLocalContext = async value => {
+    const contextLength = Number(value)
+    if (!contextLength || contextLength === localContextLength || localContextChanging || localModelSwitching) return
+    const setContext = window.qwenAudioAgentDesktop?.setLocalModelContext
+    if (typeof setContext !== 'function') return
+    setLocalModelError('')
+    setLocalContextChanging(true)
+    try {
+      const result = await setContext(contextLength)
+      if (!result?.ok) {
+        setLocalModelError(result?.error || 'Could not change the context size.')
+      }
+      if (Number.isFinite(result?.contextLength)) setLocalContextLength(result.contextLength)
+    } catch (error) {
+      setLocalModelError(error.message || 'Could not change the context size.')
+    } finally {
+      setLocalContextChanging(false)
+      setLocalModelProgress(null)
+    }
+  }
+
+  const localModelProgressText = (() => {
+    const progress = localModelProgress
+    if (!progress) return localModelSwitching ? 'Switching…' : localContextChanging ? 'Reloading model…' : ''
+    const name = progress.displayName || progress.modelKey || 'model'
+    switch (progress.phase) {
+      case 'loading':
+        return progress.mode === 'background'
+          ? `Loading ${name} in the background — you can keep chatting on the current model.`
+          : `Loading ${name} — replies pause until it is ready (not enough VRAM to keep both).`
+      case 'swapping': return `Switching services to ${name}…`
+      case 'unloading': return 'Freeing the previous model…'
+      case 'reloading': return `Reloading with a ${formatContextLength(progress.contextLength)} context…`
+      case 'recovering': return 'Something failed — restoring the previous model…'
+      default: return ''
+    }
+  })()
 
   // One Stop control for everything in flight in this chat: the spoken/streamed
   // reply and any backend work. Scheduled (future) tasks keep their own cancel
@@ -1824,7 +1891,20 @@ export default function App() {
             {model.displayName}
           </option>)}
         </select>
-        {localModelSwitching && <small>Switching…</small>}
+        <label htmlFor="local-context-select">Context window</label>
+        <select
+          id="local-context-select"
+          value={localContextLength || ''}
+          disabled={localContextChanging || localModelSwitching || localContextOptions.length === 0}
+          onChange={event => void changeLocalContext(event.target.value)}
+        >
+          {localContextOptions.length === 0 && <option value="">Unavailable</option>}
+          {localContextOptions.map(option => <option key={option} value={option}>
+            {formatContextLength(option)}{option === 32768 ? ' (default)' : ''}
+          </option>)}
+        </select>
+        {localModelProgressText && <small className="local-model-progress">{localModelProgressText}</small>}
+        {localModelWarning && <small>{localModelWarning}</small>}
         {localModelError && <small role="alert">{localModelError}</small>}
       </div>
     </aside>}

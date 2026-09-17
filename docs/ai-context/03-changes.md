@@ -2,6 +2,28 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-17 — background model switching + context-size picker (Claude)
+- **Switching no longer takes the app down for the whole load.** `desktop/src/local-model-switch.mjs`
+  now loads the new model *first* while the Gateway and speech service keep running on the old one,
+  and only then stops/starts services (a few seconds). Two modes, chosen automatically:
+  `background` — new model fits in free VRAM beside the old one (`nvidia-smi` free memory ≥ weights
+  + 1.5 GB + 32 KB/token of context), old model keeps answering during the load and is unloaded
+  after the swap; `sequential` — not enough VRAM, so old is unloaded then new loaded (replies pause)
+  but services still stay up until the swap. Unknown model size or unreadable GPU memory ⇒ sequential.
+  On Jake's 16 GB card a ~14 GB Gemma will always be sequential; small models get background.
+- Progress events (`loading` / `swapping` / `unloading` / `reloading` / `done` / `failed`) go to the
+  renderer via `qwen-audio-agent:local-model-progress`; the sidebar shows them under the picker
+  and voice is only disabled when the `swapping` phase starts. A failed background load leaves the
+  old model untouched; a failed old-model unload after a successful swap is a warning, not a rollback.
+- **Context window picker** (sidebar, under the model): 16k / 32k (default) / 64k / 128k. Writes
+  `realtime-voice-chat\.selected-voice-context`, reloads the current model with the new size without
+  restarting anything (speech and OpenCode don't care about context). The launcher
+  (`Start My Voice App.ps1`) reads the same file, so the choice survives restarts.
+  IPC `qwen-audio-agent:local-model-context`; `list()` returns `contextLength` + options.
+- Tests: `desktop/test/local-model-switch.test.mjs` (18 pass); full desktop suite = only the 4 known
+  settings-config failures; server dependency-boundary and web tests as before. **Needs a Windows
+  rebuild** and a live check of both modes and the context picker.
+
 ## 2026-09-17 — layering fix (Claude)
 - The computer-use MCP descriptor moved to `shared/backend/computer-use.mjs` so the desktop's
   screen capture no longer imports Gateway internals (`server/test/dependency-boundaries.test.mjs`

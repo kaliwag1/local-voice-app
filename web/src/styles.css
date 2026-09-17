@@ -428,6 +428,10 @@ html[data-desktop="orb"] #root {
   overflow-wrap: anywhere;
 }
 
+.local-model-picker small.local-model-progress {
+  color: #b9c6e2;
+}
+
 .chat-item {
   position: relative;
   margin: 2px 0;

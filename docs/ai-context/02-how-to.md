@@ -28,9 +28,14 @@ starts the speech service on 8765, frees port 3101, sets `OPENCODE_RUNTIME/OPENC
 5. `Get-NetTCPConnection -LocalPort 3101,4096,8765,1234 -State Listen` to see what is up.
 
 ## Model switching
-In-app picker → `desktop/src/local-model-switch.mjs`: stops gateway + speech, `lms unload/load`
-(with context length), rewrites `opencode.json`, resets the OpenCode coordinator session in
-`acp-sessions.json`, restarts everything. Takes ~1 min; red indicator meanwhile is normal.
+In-app picker → `desktop/src/local-model-switch.mjs`. Order: `lms load` the new model **while the
+old one keeps serving** (beside it if free VRAM allows — "background"; otherwise unload old first —
+"sequential"), then a short swap: stop gateway + speech, rewrite `opencode.json`, restart speech,
+reset the OpenCode coordinator session in `acp-sessions.json`, restart gateway, unload the old model.
+The sidebar text under the picker says which mode is running. Red indicator during the swap is normal.
+Context window: sidebar picker writes `realtime-voice-chat\.selected-voice-context` (read by the
+launcher too) and reloads the current model in place; env `QWEN_AUDIO_LOCAL_MODEL_CONTEXT` is the
+fallback default (32768).
 
 ## Running things on the PC from an AI session
 Assistants in a sandbox (Codex, Cowork's Linux VM) **cannot run Windows executables** and may see a

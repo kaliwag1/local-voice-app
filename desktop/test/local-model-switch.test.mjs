@@ -1,23 +1,28 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
+  CONTEXT_LENGTH_OPTIONS,
+  canPreload,
   createLocalModelSwitcher,
   ownsSpeech,
+  parseContextLength,
   updateOpenCodeConfig,
 } from '../src/local-model-switch.mjs'
 
 const oldKey = 'google/gemma-4-26b-a4b-qat'
 const newKey = 'test/other-model'
 const speechPath = 'C:\\voice\\speech-to-speech.exe'
+const GiB = 1024 ** 3
 const models = [
-  { type: 'llm', modelKey: oldKey, displayName: 'Gemma' },
-  { type: 'llm', modelKey: newKey, displayName: 'Other' },
+  { type: 'llm', modelKey: oldKey, displayName: 'Gemma', sizeBytes: 14 * GiB },
+  { type: 'llm', modelKey: newKey, displayName: 'Other', sizeBytes: 4 * GiB },
 ]
 
-function fixture({ failAt = '', ownership = 'owned' } = {}) {
+// Default: 4 GiB model, 8 GiB free → fits beside the old one (background mode).
+function fixture({ failAt = '', ownership = 'owned', freeVram = 8 * GiB } = {}) {
   const paths = {
     lms: 'lms.exe', speech: speechPath, opencodeConfig: 'opencode.json',
-    selection: 'selection', workdir: 'C:\\voice',
+    selection: 'selection', contextLength: 'context', workdir: 'C:\\voice',
   }
   const data = new Map([
     ['opencode.json', JSON.stringify({ model: `lmstudio/${oldKey}`, provider: {
@@ -26,19 +31,26 @@ function fixture({ failAt = '', ownership = 'owned' } = {}) {
     ['selection', `${oldKey}\n`],
   ])
   const calls = []
+  const progress = []
   let activeSpeech = { pid: 42, executablePath: speechPath, commandLine: speechPath }
-  let loaded = oldKey
+  // LM Studio can hold several models at once; track them all.
+  const loadedSet = new Set([oldKey])
   const fail = point => { if (point === failAt) throw new Error(`failed ${point}`) }
   const controller = createLocalModelSwitcher({
     paths,
-    read: async path => data.get(path),
+    read: async path => {
+      if (!data.has(path)) { const error = new Error('missing'); error.code = 'ENOENT'; throw error }
+      return data.get(path)
+    },
     write: async (path, content) => { calls.push(['write', path]); fail(`write:${path}`); data.set(path, content) },
+    gpuMemory: async () => freeVram,
+    onProgress: event => progress.push(event),
     lms: async (...args) => {
       calls.push(['lms', ...args])
       if (args[0] === 'ls') return JSON.stringify(models)
-      if (args[0] === 'ps') return JSON.stringify([{ modelKey: loaded, identifier: loaded }])
-      if (args[0] === 'unload') { loaded = null; return '' }
-      if (args[0] === 'load') { fail('load'); loaded = args[1]; return '' }
+      if (args[0] === 'ps') return JSON.stringify([...loadedSet].map(key => ({ modelKey: key, identifier: key })))
+      if (args[0] === 'unload') { fail(`unload:${args[1]}`); loadedSet.delete(args[1]); return '' }
+      if (args[0] === 'load') { fail('load'); loadedSet.add(args[1]); return '' }
       return ''
     },
     listener: async () => activeSpeech,
@@ -53,21 +65,116 @@ function fixture({ failAt = '', ownership = 'owned' } = {}) {
       resetBackendSessions: async () => { calls.push(['gateway.resetBackendSessions']) },
     },
   })
-  return { controller, data, calls, get loaded() { return loaded } }
+  return {
+    controller, data, calls, progress,
+    // The single loaded model, or null when none / several are loaded.
+    get loaded() { return loadedSet.size === 1 ? [...loadedSet][0] : null },
+    get loadedAll() { return [...loadedSet] },
+  }
 }
 
-test('lists only installed LLMs and current selection', async () => {
+test('lists only installed LLMs, current selection and context size', async () => {
   const { controller } = fixture()
   assert.deepEqual(await controller.list(), {
     ok: true, models: models.map(({ modelKey, displayName }) => ({ modelKey, displayName })),
     selectedModelKey: oldKey,
+    contextLength: 32768,
+    contextLengthOptions: CONTEXT_LENGTH_OPTIONS,
   })
 })
 
-test('switches owned local services and config', async () => {
+test('preloads the new model beside the old one and only then swaps services', async () => {
   const state = fixture()
   const result = await state.controller.switchModel(newKey)
-  assert.deepEqual(result, { ok: true, selectedModelKey: newKey })
+  assert.deepEqual(result, { ok: true, selectedModelKey: newKey, mode: 'background' })
+  const names = state.calls.map(call => call[0] === 'lms' ? `lms ${call[1]}` : call[0])
+  const load = names.indexOf('lms load')
+  const stop = names.indexOf('gateway.stop')
+  const unloadOld = state.calls.findIndex(call => call[0] === 'lms' && call[1] === 'unload' && call[2] === oldKey)
+  assert.ok(load !== -1 && stop !== -1 && unloadOld !== -1)
+  assert.ok(load < stop, 'the new model is loaded before any service stops')
+  assert.ok(unloadOld > names.lastIndexOf('gateway.start'), 'the old model is unloaded only after the gateway is back')
+  assert.deepEqual(state.loadedAll, [newKey])
+  assert.deepEqual(state.progress.map(event => event.phase), ['loading', 'swapping', 'unloading', 'done'])
+  assert.equal(state.progress[0].mode, 'background')
+})
+
+test('falls back to unload-then-load when VRAM cannot hold both, still without stopping services first', async () => {
+  const state = fixture({ freeVram: 1 * GiB })
+  const result = await state.controller.switchModel(newKey)
+  assert.deepEqual(result, { ok: true, selectedModelKey: newKey, mode: 'sequential' })
+  const names = state.calls.map(call => call[0] === 'lms' ? `lms ${call[1]}` : call[0])
+  assert.ok(names.indexOf('lms unload') < names.indexOf('lms load'))
+  assert.ok(names.indexOf('lms load') < names.indexOf('gateway.stop'))
+  assert.deepEqual(state.loadedAll, [newKey])
+  assert.equal(state.progress[0].mode, 'sequential')
+})
+
+test('never preloads when GPU memory is unreadable', async () => {
+  const state = fixture({ freeVram: null })
+  const result = await state.controller.switchModel(newKey)
+  assert.equal(result.mode, 'sequential')
+})
+
+test('a failed background load leaves the old model serving and untouched', async () => {
+  const state = fixture({ failAt: 'load' })
+  const result = await state.controller.switchModel(newKey)
+  assert.equal(result.ok, false)
+  assert.equal(result.selectedModelKey, oldKey)
+  assert.deepEqual(state.loadedAll, [oldKey])
+  const names = state.calls.map(call => call[0])
+  assert.ok(!names.includes('gateway.stop'), 'services were never stopped')
+  assert.ok(!names.includes('stopSpeech'))
+})
+
+test('keeps the switch and only warns when the old model cannot be unloaded afterwards', async () => {
+  const state = fixture({ failAt: `unload:${oldKey}` })
+  const result = await state.controller.switchModel(newKey)
+  assert.equal(result.ok, true)
+  assert.equal(result.selectedModelKey, newKey)
+  assert.match(result.warning, /still loaded/)
+  assert.deepEqual(state.loadedAll.sort(), [oldKey, newKey].sort())
+})
+
+test('changing the context size reloads the current model without touching services', async () => {
+  const state = fixture()
+  const result = await state.controller.setContextLength(65536)
+  assert.deepEqual(result, { ok: true, contextLength: 65536 })
+  assert.equal(state.data.get('context').trim(), '65536')
+  const load = state.calls.find(call => call[0] === 'lms' && call[1] === 'load')
+  assert.equal(load[2], oldKey)
+  assert.equal(load[load.indexOf('--context-length') + 1], '65536')
+  assert.ok(!state.calls.some(call => call[0] === 'gateway.stop' || call[0] === 'stopSpeech'))
+  assert.equal((await state.controller.list()).contextLength, 65536)
+  // A later model switch loads with the chosen size.
+  await state.controller.switchModel(newKey)
+  const switchLoad = state.calls.filter(call => call[0] === 'lms' && call[1] === 'load').at(-1)
+  assert.equal(switchLoad[switchLoad.indexOf('--context-length') + 1], '65536')
+})
+
+test('rejects unknown context sizes and restores the old context on a failed reload', async () => {
+  const state = fixture()
+  assert.equal((await state.controller.setContextLength(12345)).ok, false)
+  assert.equal(state.calls.filter(call => call[0] !== 'lms').length, 0)
+  const failing = fixture({ failAt: 'load' })
+  const result = await failing.controller.setContextLength(65536)
+  assert.equal(result.ok, false)
+  assert.equal(result.contextLength, 32768)
+  assert.equal(failing.data.has('context'), false)
+})
+
+test('preload fit check needs weights plus context headroom', () => {
+  assert.equal(canPreload({ sizeBytes: 4 * GiB, freeBytes: 8 * GiB, contextLength: 32768 }), true)
+  assert.equal(canPreload({ sizeBytes: 4 * GiB, freeBytes: 5 * GiB, contextLength: 32768 }), false)
+  assert.equal(canPreload({ sizeBytes: null, freeBytes: 16 * GiB, contextLength: 32768 }), false)
+  assert.equal(parseContextLength('32768\n'), 32768)
+  assert.equal(parseContextLength('9999'), null)
+})
+
+test('switches owned local services and config', async () => {
+  const state = fixture({ freeVram: 0 })
+  const result = await state.controller.switchModel(newKey)
+  assert.deepEqual(result, { ok: true, selectedModelKey: newKey, mode: 'sequential' })
   assert.equal(state.loaded, newKey)
   assert.equal(JSON.parse(state.data.get('opencode.json')).model, `lmstudio/${newKey}`)
   assert.equal(state.data.get('selection').trim(), newKey)
@@ -83,7 +190,7 @@ test('refuses borrowed gateway and unknown model without changes', async () => {
 })
 
 test('recovers old model, config, speech and gateway after a failed restart', async () => {
-  const state = fixture({ failAt: 'gateway.start' })
+  const state = fixture({ failAt: 'gateway.start', freeVram: 0 })
   const result = await state.controller.switchModel(newKey)
   assert.equal(result.ok, false)
   assert.equal(result.selectedModelKey, oldKey)
@@ -94,7 +201,7 @@ test('recovers old model, config, speech and gateway after a failed restart', as
 })
 
 test('restores the old setup if new speech fails to start', async () => {
-  const state = fixture({ failAt: 'startSpeech' })
+  const state = fixture({ failAt: 'startSpeech', freeVram: 0 })
   const result = await state.controller.switchModel(newKey)
   assert.equal(result.ok, false)
   assert.equal(result.selectedModelKey, oldKey)
@@ -133,7 +240,7 @@ test('tolerates a UTF-8 BOM in the OpenCode config and loads with a large contex
   const state = fixture()
   state.data.set('opencode.json', `﻿${state.data.get('opencode.json')}`)
   const result = await state.controller.switchModel(newKey)
-  assert.deepEqual(result, { ok: true, selectedModelKey: newKey })
+  assert.deepEqual(result, { ok: true, selectedModelKey: newKey, mode: 'background' })
   const written = state.data.get('opencode.json')
   assert.equal(written.startsWith('﻿'), false)
   assert.equal(JSON.parse(written).model, `lmstudio/${newKey}`)

@@ -206,6 +206,12 @@ let gatewayAccessToken = String(
 let pendingGatewayPairingCode = null
 
 const localModelSwitcher = createLocalModelSwitcher({
+  onProgress: event => {
+    logger.info('local_model.progress', event)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('qwen-audio-agent:local-model-progress', event)
+    }
+  },
   gateway: {
     ownership: () => process.platform === 'win32'
       && isLoopbackUrl(configuredGatewayOrigin)
@@ -905,6 +911,16 @@ ipcMain.handle('qwen-audio-agent:local-model-switch', async (event, modelKey) =>
     return { ok: false, error: 'Choose an installed LM Studio model.' }
   }
   return localModelSwitcher.switchModel(modelKey)
+})
+
+ipcMain.handle('qwen-audio-agent:local-model-context', async (event, contextLength) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) {
+    throw new Error('Only the desktop conversation window can change the model context size.')
+  }
+  if (!Number.isSafeInteger(contextLength)) {
+    return { ok: false, error: 'Choose one of the listed context sizes.' }
+  }
+  return localModelSwitcher.setContextLength(contextLength)
 })
 
 ipcMain.handle('qwen-audio-agent:audio-file-pick', async event => {

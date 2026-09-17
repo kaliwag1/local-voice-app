@@ -10,13 +10,20 @@ const execFileAsync = promisify(execFile)
 const SPEECH_PORT = 8765
 // OpenCode's agent prompt is ~9k tokens, so a model loaded with LM Studio's
 // default 8192 context fails every agent task. Keep in step with the launcher
-// script (Start My Voice App.ps1, $modelContextLength).
-const MODEL_CONTEXT_LENGTH = Number(process.env.QWEN_AUDIO_LOCAL_MODEL_CONTEXT || 32768)
+// script (Start My Voice App.ps1, $modelContextLength) — it also reads the
+// `.selected-voice-context` file written by setContextLength below.
+const DEFAULT_CONTEXT_LENGTH = Number(process.env.QWEN_AUDIO_LOCAL_MODEL_CONTEXT || 32768)
+export const CONTEXT_LENGTH_OPTIONS = [16384, 32768, 65536, 131072]
+// Loading a second model beside the running one needs its weights plus a KV
+// cache for the requested context in free VRAM. The margin covers the cache
+// and CUDA workspace; below it LM Studio would spill to system RAM and crawl.
+const PRELOAD_MARGIN_BYTES = 1.5 * 1024 ** 3
+const PRELOAD_CONTEXT_BYTES_PER_TOKEN = 32 * 1024
 
 // Files edited by PowerShell/Notepad often carry a UTF-8 BOM, which JSON.parse
 // rejects ("Unexpected token" before the opening brace).
 function stripBom(text) {
-  return String(text ?? '').replace(/^\uFEFF/, '')
+  return String(text ?? '').replace(/^﻿/, '')
 }
 
 function parseJson(text, what) {
@@ -35,6 +42,7 @@ function defaultPaths(env = process.env, root = env.QWEN_AUDIO_LOCAL_VOICE_ROOT
     speech: join(root, '.voice-env', 'Scripts', 'speech-to-speech.exe'),
     opencodeConfig: join(home, '.config', 'opencode', 'opencode.json'),
     selection: join(root, '.selected-voice-model'),
+    contextLength: join(root, '.selected-voice-context'),
     workdir: root,
   }
 }
@@ -73,6 +81,19 @@ async function speechListener() {
   const script = `$listener = Get-NetTCPConnection -LocalAddress '127.0.0.1' -LocalPort ${SPEECH_PORT} -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if ($listener) { $p = Get-CimInstance Win32_Process -Filter "ProcessId = $($listener.OwningProcess)"; if ($p) { [pscustomobject]@{ pid = $p.ProcessId; commandLine = $p.CommandLine; executablePath = $p.ExecutablePath } | ConvertTo-Json -Compress } }`
   const output = await command('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script])
   return output ? parseJson(output, 'Speech service listener info') : null
+}
+
+// Device-wide free VRAM in bytes, or null when it cannot be read (no NVIDIA
+// GPU, nvidia-smi missing). Null means "do not preload", never "assume it fits".
+async function freeGpuMemory() {
+  try {
+    const output = await command('nvidia-smi', ['--query-gpu=memory.free', '--format=csv,noheader,nounits'], { timeout: 10_000 })
+    const values = output.split(/\r?\n/).map(line => Number(line.trim())).filter(Number.isFinite)
+    if (!values.length) return null
+    return Math.max(...values) * 1024 ** 2
+  } catch {
+    return null
+  }
 }
 
 function normalizeWindowsPath(value) {
@@ -128,7 +149,25 @@ function parseModels(output) {
   const raw = parseJson(output, 'LM Studio model list')
   if (!Array.isArray(raw)) throw new Error('LM Studio returned an invalid model list.')
   return raw.filter(item => item?.type === 'llm' && typeof item.modelKey === 'string')
-    .map(({ modelKey, displayName }) => ({ modelKey, displayName: displayName || modelKey }))
+    .map(({ modelKey, displayName, sizeBytes }) => ({
+      modelKey,
+      displayName: displayName || modelKey,
+      sizeBytes: Number.isFinite(sizeBytes) ? sizeBytes : null,
+    }))
+}
+
+function parseContextLength(value) {
+  const number = Number(String(value ?? '').trim())
+  return CONTEXT_LENGTH_OPTIONS.includes(number) ? number : null
+}
+
+// Can the new model be loaded beside the running one without spilling out of
+// VRAM? Unknown sizes or unreadable GPU memory mean no — the sequential path
+// is slower but never worse than today.
+function canPreload({ sizeBytes, freeBytes, contextLength }) {
+  if (!Number.isFinite(sizeBytes) || !Number.isFinite(freeBytes)) return false
+  const needed = sizeBytes + PRELOAD_MARGIN_BYTES + contextLength * PRELOAD_CONTEXT_BYTES_PER_TOKEN
+  return freeBytes >= needed
 }
 
 export function createLocalModelSwitcher({
@@ -137,35 +176,66 @@ export function createLocalModelSwitcher({
   read = path => fs.readFile(path, 'utf8'),
   write = replaceFile,
   listener = speechListener,
+  gpuMemory = freeGpuMemory,
   stopSpeech = async info => { process.kill(info.pid); await waitForPort(SPEECH_PORT, false) },
   startSpeech = async modelKey => {
     launchSpeech(paths.speech, modelKey, paths.workdir)
     await waitForPort(SPEECH_PORT, true, 120_000)
   },
   gateway = { ownership: () => 'unavailable', stop: async () => {}, start: async () => {}, resetBackendSessions: async () => {} },
+  onProgress = () => {},
 } = {}) {
   let pending = false
 
+  function progress(event) {
+    try { onProgress(event) } catch { /* progress is informational only */ }
+  }
+
+  async function readOptional(path) {
+    try {
+      return String(await read(path))
+    } catch (error) {
+      if (error.code === 'ENOENT') return ''
+      throw error
+    }
+  }
+
+  async function contextLength() {
+    return parseContextLength(await readOptional(paths.contextLength)) || DEFAULT_CONTEXT_LENGTH
+  }
+
+  async function loadedModels() {
+    const loaded = parseJson(await lms('ps', '--json'), 'LM Studio loaded-model list')
+    if (!Array.isArray(loaded)) throw new Error('LM Studio returned an invalid loaded-model list.')
+    return loaded
+  }
+
+  async function loadModel(modelKey, length) {
+    await lms('load', modelKey, '-y', '--context-length', String(length))
+  }
+
   async function list() {
     const models = parseModels(await lms('ls', '--llm', '--json'))
-    let selectedModelKey = null
-    try {
-      selectedModelKey = String(await read(paths.selection)).trim() || null
-    } catch (error) {
-      if (error.code !== 'ENOENT') throw error
-    }
+    let selectedModelKey = (await readOptional(paths.selection)).trim() || null
     if (!selectedModelKey) {
       const settings = parseJson(await read(paths.opencodeConfig), 'OpenCode config')
       selectedModelKey = String(settings.model || '').replace(/^lmstudio\//, '') || null
     }
-    return { ok: true, models, selectedModelKey }
+    return {
+      ok: true,
+      models: models.map(({ modelKey, displayName }) => ({ modelKey, displayName })),
+      selectedModelKey,
+      contextLength: await contextLength(),
+      contextLengthOptions: CONTEXT_LENGTH_OPTIONS,
+    }
   }
 
   async function switchModel(modelKey) {
     if (pending) return { ok: false, error: 'A model switch is already in progress.' }
     pending = true
     try {
-      const { models, selectedModelKey: previousKey } = await list()
+      const models = parseModels(await lms('ls', '--llm', '--json'))
+      const { selectedModelKey: previousKey } = await list()
       const chosen = models.find(model => model.modelKey === modelKey)
       if (!chosen) return { ok: false, selectedModelKey: previousKey, error: 'Choose an installed LM Studio model.' }
       if (chosen.modelKey === previousKey) return { ok: true, selectedModelKey: previousKey }
@@ -181,22 +251,37 @@ export function createLocalModelSwitcher({
         return { ok: false, selectedModelKey: previousKey,
           error: `Another program owns the speech service (${speech.executablePath || `pid ${speech.pid}`}). Close it before changing models.` }
       }
-      const loaded = parseJson(await lms('ps', '--json'), 'LM Studio loaded-model list')
-      if (!Array.isArray(loaded)) throw new Error('LM Studio returned an invalid loaded-model list.')
+      const length = await contextLength()
+      const loaded = await loadedModels()
       const oldLoaded = loaded.find(item => item.modelKey === previousKey)
       const chosenAlreadyLoaded = loaded.some(item => item.modelKey === chosen.modelKey)
+      const preload = !chosenAlreadyLoaded && (!oldLoaded || canPreload({
+        sizeBytes: chosen.sizeBytes, freeBytes: await gpuMemory(), contextLength: length,
+      }))
+      const mode = chosenAlreadyLoaded ? 'already-loaded' : preload ? 'background' : 'sequential'
+      let oldUnloaded = false
+      let newLoaded = false
       let gatewayStopped = false
       let speechStopped = false
       let speechStartAttempted = false
-      let newLoaded = false
       let configChanged = false
       let selectionChanged = false
       try {
+        // Phase 1 — load. The Gateway and speech service keep running on the
+        // old model. In background mode the old model keeps answering; in
+        // sequential mode (not enough VRAM for both) replies pause while the
+        // new model loads, but nothing has to be restarted afterwards.
+        await lms('server', 'start')
+        if (!chosenAlreadyLoaded) {
+          progress({ phase: 'loading', mode, modelKey: chosen.modelKey, displayName: chosen.displayName })
+          if (!preload && oldLoaded) { await lms('unload', oldLoaded.identifier); oldUnloaded = true }
+          await loadModel(chosen.modelKey, length); newLoaded = true
+        }
+        // Phase 2 — swap. Only now do the services go down, and only for as
+        // long as their restart takes.
+        progress({ phase: 'swapping', mode, modelKey: chosen.modelKey, displayName: chosen.displayName })
         await gateway.stop(); gatewayStopped = true
         if (speech) { await stopSpeech(speech); speechStopped = true }
-        await lms('server', 'start')
-        if (oldLoaded) await lms('unload', oldLoaded.identifier)
-        if (!chosenAlreadyLoaded) { await lms('load', chosen.modelKey, '-y', '--context-length', String(MODEL_CONTEXT_LENGTH)); newLoaded = true }
         await write(paths.opencodeConfig, after); configChanged = true
         speechStartAttempted = true
         await startSpeech(chosen.modelKey)
@@ -206,8 +291,21 @@ export function createLocalModelSwitcher({
         // its config ("ProviderModelNotFoundError"). Start fresh on the new one.
         await gateway.resetBackendSessions?.()
         await gateway.start(); gatewayStopped = false
-        return { ok: true, selectedModelKey: chosen.modelKey }
+        // Phase 3 — free the old model. Failure here is not worth a rollback;
+        // the app is already fully on the new model.
+        let warning
+        if (preload && oldLoaded) {
+          progress({ phase: 'unloading', mode, modelKey: previousKey })
+          try { await lms('unload', oldLoaded.identifier) } catch (error) {
+            warning = `The previous model is still loaded in LM Studio (${error.message}). Unload it there to free memory.`
+          }
+        }
+        progress({ phase: 'done', mode, modelKey: chosen.modelKey, displayName: chosen.displayName })
+        return warning
+          ? { ok: true, selectedModelKey: chosen.modelKey, mode, warning }
+          : { ok: true, selectedModelKey: chosen.modelKey, mode }
       } catch (error) {
+        progress({ phase: 'recovering', mode, modelKey: previousKey })
         const recoveryErrors = []
         async function recover(action) { try { await action() } catch (failure) { recoveryErrors.push(failure.message) } }
         if (speechStopped || speechStartAttempted) {
@@ -217,9 +315,10 @@ export function createLocalModelSwitcher({
         if (selectionChanged) await recover(() => write(paths.selection, `${previousKey}\n`))
         if (configChanged) await recover(() => write(paths.opencodeConfig, before))
         if (newLoaded) await recover(() => lms('unload', chosen.modelKey))
-        if (oldLoaded) await recover(() => lms('load', previousKey, '-y', '--context-length', String(MODEL_CONTEXT_LENGTH)))
+        if (oldUnloaded) await recover(() => loadModel(previousKey, length))
         if (speechStopped) await recover(() => startSpeech(previousKey))
         if (gatewayStopped) await recover(() => gateway.start())
+        progress({ phase: 'failed', mode, modelKey: previousKey })
         return { ok: false, selectedModelKey: previousKey,
           error: recoveryErrors.length
             ? `${error.message} Recovery also needs attention: ${recoveryErrors.join('; ')}`
@@ -233,7 +332,49 @@ export function createLocalModelSwitcher({
     }
   }
 
-  return { list, switchModel }
+  // Reload the current model with a different context window. Neither the
+  // speech service nor OpenCode care about the context size, so nothing is
+  // restarted: only LM Studio's loaded instance changes.
+  async function setContextLength(value) {
+    if (pending) return { ok: false, error: 'A model switch is already in progress.' }
+    pending = true
+    try {
+      const length = parseContextLength(value)
+      const current = await contextLength()
+      if (!length) return { ok: false, contextLength: current, error: 'Choose one of the listed context sizes.' }
+      if (length === current) return { ok: true, contextLength: current }
+      const { selectedModelKey } = await list()
+      const loaded = selectedModelKey ? (await loadedModels()).find(item => item.modelKey === selectedModelKey) : null
+      let unloaded = false
+      try {
+        if (loaded) {
+          progress({ phase: 'reloading', mode: 'context', modelKey: selectedModelKey, contextLength: length })
+          await lms('server', 'start')
+          await lms('unload', loaded.identifier); unloaded = true
+          await loadModel(selectedModelKey, length)
+        }
+        await write(paths.contextLength, `${length}\n`)
+        progress({ phase: 'done', mode: 'context', modelKey: selectedModelKey, contextLength: length })
+        return { ok: true, contextLength: length }
+      } catch (error) {
+        const recoveryErrors = []
+        if (unloaded) {
+          try { await loadModel(selectedModelKey, current) } catch (failure) { recoveryErrors.push(failure.message) }
+        }
+        progress({ phase: 'failed', mode: 'context', modelKey: selectedModelKey, contextLength: current })
+        return { ok: false, contextLength: current,
+          error: recoveryErrors.length
+            ? `${error.message} The model could not be reloaded either: ${recoveryErrors.join('; ')}`
+            : error.message }
+      }
+    } catch (error) {
+      return { ok: false, error: error.message }
+    } finally {
+      pending = false
+    }
+  }
+
+  return { list, switchModel, setContextLength }
 }
 
-export { defaultPaths, ownsSpeech, parseModels, updateOpenCodeConfig }
+export { canPreload, defaultPaths, ownsSpeech, parseContextLength, parseModels, updateOpenCodeConfig }
