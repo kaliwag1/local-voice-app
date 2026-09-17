@@ -13,6 +13,7 @@ export function initialDesktopClientSettings(search = '') {
     }),
     autoHideSeconds: desktopAutoHideSeconds(search),
     wakeWordEnabled: desktopWakeWordEnabled(search),
+    pushToTalkKey: params.get('pushToTalkKey') ?? 'F9',
     language: params.get('lang') || '',
   }
 }
@@ -28,6 +29,9 @@ export function applyDesktopClientSettings(current, update = {}) {
     wakeWordEnabled: typeof update.wakeWordEnabled === 'boolean'
       ? update.wakeWordEnabled
       : current.wakeWordEnabled,
+    pushToTalkKey: typeof update.pushToTalkKey === 'string'
+      ? update.pushToTalkKey
+      : current.pushToTalkKey,
     language: update.language || current.language,
   }
 }

@@ -23,6 +23,7 @@ const DEFAULTS = {
   orbSkin: 'fluid',
   autoHideSeconds: 60,
   wakeShortcut: 'CommandOrControl+Shift+Space',
+  pushToTalkKey: 'F9',
   wakeWordEnabled: false,
   ...realtimeSettingsValues(),
   agentProtocol: 'none',
@@ -40,6 +41,7 @@ const CLIENT_SETTING_KEYS = {
   orbSkin: 'QWEN_AUDIO_ORB_SKIN',
   autoHideSeconds: 'QWEN_AUDIO_DESKTOP_AUTO_HIDE_SECONDS',
   wakeShortcut: 'QWEN_AUDIO_DESKTOP_WAKE_SHORTCUT',
+  pushToTalkKey: 'QWEN_AUDIO_PUSH_TO_TALK_KEY',
   wakeWordEnabled: 'QWEN_AUDIO_WAKE_WORD_ENABLED',
   language: 'QWEN_AUDIO_DESKTOP_LANGUAGE',
 }
@@ -111,6 +113,17 @@ function cleanAutoHideSeconds(value) {
     return DEFAULTS.autoHideSeconds
   }
   return seconds
+}
+
+// Push-to-talk: '' = off; otherwise the same accelerator grammar as the wake shortcut
+// (F-keys alone, or Ctrl/Alt combos), handled in the panel renderer while it is focused.
+export function cleanPushToTalkKey(value) {
+  const key = String(value ?? DEFAULTS.pushToTalkKey).trim()
+  if (key === '' || key.toLowerCase() === 'off' || key.toLowerCase() === 'none') return ''
+  const cleaned = cleanWakeShortcut(key)
+  return cleaned === DEFAULTS.wakeShortcut && key !== DEFAULTS.wakeShortcut
+    ? DEFAULTS.pushToTalkKey
+    : cleaned
 }
 
 function cleanWakeShortcut(value) {
@@ -256,6 +269,11 @@ export function parseSettings(content = '', fallback = {}) {
       'QWEN_AUDIO_DESKTOP_WAKE_SHORTCUT',
       fallback.QWEN_AUDIO_DESKTOP_WAKE_SHORTCUT ?? DEFAULTS.wakeShortcut,
     )),
+    pushToTalkKey: cleanPushToTalkKey(
+      Object.hasOwn(values, 'QWEN_AUDIO_PUSH_TO_TALK_KEY')
+        ? values.QWEN_AUDIO_PUSH_TO_TALK_KEY
+        : fallback.QWEN_AUDIO_PUSH_TO_TALK_KEY ?? DEFAULTS.pushToTalkKey,
+    ),
     wakeWordEnabled: String(
       configured(
         values,
@@ -325,6 +343,7 @@ export function normalizeSettings(settings = {}) {
     wakeShortcut: cleanWakeShortcut(
       settings.wakeShortcut ?? DEFAULTS.wakeShortcut,
     ),
+    pushToTalkKey: cleanPushToTalkKey(settings.pushToTalkKey ?? DEFAULTS.pushToTalkKey),
     wakeWordEnabled: Boolean(settings.wakeWordEnabled),
     ...normalizeRealtimeSettings(settings, realtimeProvider),
     agentProtocol,

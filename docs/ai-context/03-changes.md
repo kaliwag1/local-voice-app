@@ -2,6 +2,28 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-17 — Settings sheet, Claude-style chat, push-to-talk (Claude)
+- **Settings floats over the panel.** `createSettingsOverlayWindow` in `main.mjs`: frameless
+  transparent child window tracking the panel's bounds, `settings.html?overlay=1`. No acrylic
+  (it pops in at full strength); instead the panel blurs/dims itself via IPC
+  `qwen-audio-agent:settings-overlay` (`preload.onSettingsOverlay` → `html[data-settings-open]`)
+  and the sheet fades/rises in via `data-shown`, fades out via `data-closing` before
+  `window.close()`. ✕ / Esc / click on scrim close it; collapsing to the orb closes it.
+  Standalone window fallback when the panel isn't showing.
+- **Chat layout like Claude:** centred column (`.messages` ≤760px, composer ≤720px);
+  assistant text has no bubble, user messages sit in a neutral `--surface-3` bubble ≤78%.
+- **Push to talk.** Setting `pushToTalkKey` (`QWEN_AUDIO_PUSH_TO_TALK_KEY`, default `F9`,
+  `''` = off; `cleanPushToTalkKey` in `settings-config.mjs`). Settings → Application → "Push
+  to talk" recorder (same grammar as the wake shortcut: F-keys alone or Ctrl/Alt combos).
+  Reaches the renderer via the orb URL (`pushToTalkKey=`) and `client-settings` IPC;
+  `web/src/desktop/push-to-talk.js` matches keydown (exact modifiers) / keyup (main key only).
+  In `App.jsx`: hold → `enableVoice()`, release or window blur → `disableVoice()`; if the mic
+  was already on the key does nothing. **Renderer-side, so only while the panel is focused**
+  (Electron's globalShortcut has no key-up event; a global *toggle* would be the follow-up).
+  Status pill tooltip shows "Hold F9 to talk". Tests: `web/test/push-to-talk.test.mjs`.
+- Settings tab row is 5 columns; skin names English ("Fluid orb", "Liquid gradient orb");
+  "Show in Explorer"; wake-word hint gives the pinyin and says the KWS model is Chinese-only.
+
 ## 2026-09-17 — UI design pass: tokens, dark Settings, "ZD Voice" branding (Claude)
 - **Design tokens.** `web/src/styles.css` `:root` now defines the palette (`--bg/--surface-*`,
   `--text/--text-2/3/4`, `--accent*`, `--success/--warning/--danger*`, `--border/--fill`),

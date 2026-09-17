@@ -704,8 +704,8 @@ html[data-settings-open] .desktop-conversation-panel {
   padding: 16px 22px 8px;
 }
 
-.desktop-conversation-panel article {
-  max-width: 82%;
+.desktop-conversation-panel article.user {
+  max-width: 78%;
 }
 
 .desktop-conversation-panel .agent-task,
@@ -1766,7 +1766,20 @@ article .message-body {
   border-radius: var(--radius-lg);
   background: var(--surface-2);
 }
-article.user .message-body { background: var(--accent); }
+/* Claude-style layout: the assistant speaks as plain text in the column; only the
+   user's messages sit in a (neutral) bubble. */
+article:not(.user):not(.companion) .message-body {
+  padding: 2px 0;
+  border-radius: 0;
+  background: transparent;
+}
+article:not(.user):not(.companion) { max-width: 100%; }
+article.user { max-width: 78%; }
+article.user .message-body {
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+}
+article.user label { display: none; }
 article.companion {
   width: calc(100% - 32px);
   max-width: none;
@@ -1813,7 +1826,7 @@ article .message-body > *:last-child { margin-bottom: 0; }
   background: var(--surface-3);
   color: var(--accent-text);
 }
-article.user .message-body .inline-code { background: var(--accent-deep); color: var(--text); }
+article.user .message-body .inline-code { background: var(--fill-hover); color: var(--text); }
 .message-body .code-block {
   margin: 0.5em 0;
   padding: 10px 13px;

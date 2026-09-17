@@ -33,6 +33,10 @@ const autoHideSeconds = document.querySelector('#auto-hide-seconds')
 const wakeShortcut = document.querySelector('#wake-shortcut')
 const recordWakeShortcut = document.querySelector('#record-wake-shortcut')
 const resetWakeShortcut = document.querySelector('#reset-wake-shortcut')
+const pttKey = document.querySelector('#ptt-key')
+const recordPttKey = document.querySelector('#record-ptt-key')
+const clearPttKey = document.querySelector('#clear-ptt-key')
+let recordingPttKey = false
 const wakeWordEnabled = document.querySelector('#wake-word-enabled')
 const desktopLanguage = document.querySelector('#desktop-language')
 const backendList = document.querySelector('#backend-list')
@@ -183,6 +187,52 @@ async function restoreWakeShortcutRegistration() {
     renderWakeShortcutStatus(false)
   }
 }
+
+function renderPttKey() {
+  recordPttKey.textContent = recordingPttKey
+    ? t('请按快捷键…')
+    : pttKey.value ? wakeShortcutLabel(pttKey.value) : t('关闭')
+  recordPttKey.classList.toggle('recording', recordingPttKey)
+  recordPttKey.classList.toggle('muted', !recordingPttKey && !pttKey.value)
+  clearPttKey.hidden = !pttKey.value
+}
+
+recordPttKey.addEventListener('click', () => {
+  recordingPttKey = !recordingPttKey
+  if (recordingPttKey) recordPttKey.blur()
+  renderPttKey()
+  updateApplyState()
+})
+
+clearPttKey.addEventListener('click', () => {
+  recordingPttKey = false
+  pttKey.value = ''
+  showMessage('')
+  renderPttKey()
+  updateApplyState()
+})
+
+window.addEventListener('keydown', event => {
+  if (!recordingPttKey) return
+  event.preventDefault()
+  event.stopPropagation()
+  if (event.key === 'Escape') {
+    recordingPttKey = false
+    renderPttKey()
+    return
+  }
+  if (['Meta', 'Control', 'Alt', 'Shift'].includes(event.key)) return
+  const shortcut = capturedWakeShortcut(event)
+  if (!shortcut) {
+    showMessage(t('请使用 Command/Ctrl 或 Alt 组合键，也可以直接使用 F1–F24。'), 'error')
+    return
+  }
+  pttKey.value = shortcut
+  recordingPttKey = false
+  showMessage('')
+  renderPttKey()
+  updateApplyState()
+}, true)
 
 function capturedWakeShortcut(event) {
   let key = event.key
@@ -746,6 +796,7 @@ function formSettings() {
     orbSkin: orbSkinSelect.value,
     autoHideSeconds: Number(autoHideSeconds.value),
     wakeShortcut: wakeShortcut.value,
+    pushToTalkKey: pttKey.value,
     wakeWordEnabled: wakeWordEnabled.checked,
     ...realtimeForm.values(),
     agentProtocol: selectedBackend(),
@@ -764,6 +815,7 @@ function fingerprint(value) {
     orbSkin: value.orbSkin,
     autoHideSeconds: value.autoHideSeconds,
     wakeShortcut: value.wakeShortcut,
+    pushToTalkKey: value.pushToTalkKey ?? '',
     wakeWordEnabled: value.wakeWordEnabled,
     ...realtimeSettingsValues(value),
     agentProtocol: value.agentProtocol,
@@ -1015,6 +1067,9 @@ function render() {
   }
   autoHideSeconds.value = hideValue
   wakeShortcut.value = settings.wakeShortcut
+  pttKey.value = settings.pushToTalkKey ?? ''
+  recordingPttKey = false
+  renderPttKey()
   wakeWordEnabled.checked = settings.wakeWordEnabled || false
   desktopLanguage.value = settings.language || 'auto'
   applyLanguage(desktopLanguage.value)

@@ -48,6 +48,7 @@ export function desktopOrbUrl(value, {
   orbSkin,
   autoHideSeconds,
   wakeWordEnabled = false,
+  pushToTalkKey,
   language = '',
   surfaceMode = 'orb',
   sessionId = '',
@@ -64,6 +65,7 @@ export function desktopOrbUrl(value, {
     url.searchParams.set('autoHideSeconds', String(autoHideSeconds))
   }
   if (wakeWordEnabled) url.searchParams.set('wakeWordEnabled', 'true')
+  if (typeof pushToTalkKey === 'string') url.searchParams.set('pushToTalkKey', pushToTalkKey)
   if (language) url.searchParams.set('lang', language)
   if (surfaceMode === 'panel') url.searchParams.set('surface', 'panel')
   const normalizedSessionId = normalizeConversationSessionId(sessionId)

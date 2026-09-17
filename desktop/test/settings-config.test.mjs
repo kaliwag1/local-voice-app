@@ -12,6 +12,7 @@ import {
 
 const REALTIME_DEFAULTS = {
   wakeShortcut: 'CommandOrControl+Shift+Space',
+  pushToTalkKey: 'F9',
   wakeWordEnabled: false,
   realtimeProvider: 'dashscope',
   realtimeBaseUrl: 'wss://dashscope.aliyuncs.com/api-ws/v1/realtime',

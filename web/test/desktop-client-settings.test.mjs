@@ -8,11 +8,12 @@ import {
 
 test('desktop client settings initialize from the desktop URL', () => {
   assert.deepEqual(initialDesktopClientSettings(
-    '?orbSkin=firefly&autoHideSeconds=300&wakeWordEnabled=true&lang=en',
+    '?orbSkin=firefly&autoHideSeconds=300&wakeWordEnabled=true&pushToTalkKey=F8&lang=en',
   ), {
     orbSkinId: 'firefly',
     autoHideSeconds: 300,
     wakeWordEnabled: true,
+    pushToTalkKey: 'F8',
     language: 'en',
   })
 })
@@ -22,6 +23,7 @@ test('desktop client settings hot-apply without replacing unrelated state', () =
     orbSkinId: 'fluid',
     autoHideSeconds: 60,
     wakeWordEnabled: false,
+    pushToTalkKey: 'F9',
     language: 'zh-CN',
   }
 
@@ -33,6 +35,7 @@ test('desktop client settings hot-apply without replacing unrelated state', () =
     orbSkinId: 'firefly',
     autoHideSeconds: 120,
     wakeWordEnabled: false,
+    pushToTalkKey: 'F9',
     language: 'en',
   })
 })

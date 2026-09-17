@@ -21,6 +21,7 @@ import DesktopFluidOrb from './desktop/DesktopFluidOrb.jsx'
 import DesktopSpriteOrb from './desktop/DesktopSpriteOrb.jsx'
 import KnowledgeLibraryPanel from './KnowledgeLibraryPanel.jsx'
 import AudioTranscriber from './AudioTranscriber.jsx'
+import { acceleratorLabel, matchesAcceleratorDown, matchesAcceleratorUp } from './desktop/push-to-talk.js'
 import {
   desktopOrbClassName,
   resolveOrbVisualState,
@@ -205,6 +206,7 @@ export default function App() {
     orbSkinId,
     autoHideSeconds,
     wakeWordEnabled,
+    pushToTalkKey,
   } = desktopClientSettings
   // `t()` reads the module-level runtime language. Keeping a revision in
   // React state makes a language-only settings update repaint this surface
@@ -1318,6 +1320,53 @@ export default function App() {
     setActivity(t('待命'))
   }
 
+  // Push to talk: hold the configured key (Settings → Application) while the panel is
+  // focused to open the mic, release to close it. If the mic was already on, the key does
+  // nothing so it can't accidentally mute a hands-free session. Losing window focus
+  // mid-hold releases too, so the mic never sticks on.
+  const pushToTalkHeld = useRef(false)
+  const pushToTalkOpenedMic = useRef(false)
+  const voiceControlsRef = useRef({ enableVoice, disableVoice, voiceEnabled })
+  voiceControlsRef.current = { enableVoice, disableVoice, voiceEnabled }
+  useEffect(() => {
+    if (!desktopOrbMode || !pushToTalkKey) return undefined
+    const release = () => {
+      if (!pushToTalkHeld.current) return
+      pushToTalkHeld.current = false
+      if (pushToTalkOpenedMic.current) {
+        pushToTalkOpenedMic.current = false
+        voiceControlsRef.current.disableVoice()
+      }
+    }
+    const onKeyDown = event => {
+      if (event.repeat || !matchesAcceleratorDown(event, pushToTalkKey)) return
+      event.preventDefault()
+      if (pushToTalkHeld.current) return
+      pushToTalkHeld.current = true
+      if (!voiceControlsRef.current.voiceEnabled) {
+        pushToTalkOpenedMic.current = true
+        voiceControlsRef.current.enableVoice()
+      }
+    }
+    const onKeyUp = event => {
+      if (!pushToTalkHeld.current || !matchesAcceleratorUp(event, pushToTalkKey)) return
+      event.preventDefault()
+      release()
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    window.addEventListener('keyup', onKeyUp, true)
+    window.addEventListener('blur', release)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true)
+      window.removeEventListener('keyup', onKeyUp, true)
+      window.removeEventListener('blur', release)
+      release()
+    }
+  }, [desktopOrbMode, pushToTalkKey])
+  const pushToTalkHint = desktopOrbMode && pushToTalkKey
+    ? `Hold ${acceleratorLabel(pushToTalkKey, navigator.platform)} to talk`
+    : ''
+
   // Settings floats over the panel as its own window; the panel blurs itself underneath
   // (a transparent child window can't blur what's behind it).
   useEffect(() => {
@@ -1915,7 +1964,7 @@ export default function App() {
           ? <small>{modelInputModeList(modelStatus.modelInputModes)}</small>
           : <small>{t('模型能力信息不可用')}</small>}
       </div>
-      <div className="status">
+      <div className="status" title={pushToTalkHint || undefined}>
         <i className={orbVisualState} /><span>{labelFor(orbVisualState)}</span>
       </div>
       {desktopOrbMode && <button

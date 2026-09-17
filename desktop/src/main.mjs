@@ -566,6 +566,7 @@ async function loadQwenAudioAgent(window) {
       orbSkin: effectiveOrbSkin(settings.orbSkin),
       autoHideSeconds: settings.autoHideSeconds,
       wakeWordEnabled: settings.wakeWordEnabled,
+      pushToTalkKey: settings.pushToTalkKey,
       language: effectiveDesktopLanguage(settings.language, app.getLocale()),
       surfaceMode: desktopSurfaceMode,
       sessionId: desktopConversationSessionId,
@@ -583,6 +584,7 @@ function sendDesktopClientSettings(window, settings) {
     orbSkin: effectiveOrbSkin(settings.orbSkin),
     autoHideSeconds: settings.autoHideSeconds,
     wakeWordEnabled: settings.wakeWordEnabled,
+    pushToTalkKey: settings.pushToTalkKey ?? '',
     language: effectiveDesktopLanguage(settings.language, app.getLocale()),
   })
 }

@@ -342,6 +342,27 @@
               </div>
 
               <div class="setting-row">
+                <label for="ptt-key">按住说话</label>
+                <div class="shortcut-field">
+                  <input id="ptt-key" type="hidden" value="F9" />
+                  <button
+                    id="record-ptt-key"
+                    class="shortcut-recorder"
+                    type="button"
+                    title="点击后按下新的快捷键"
+                  >F9</button>
+                  <button
+                    id="clear-ptt-key"
+                    class="shortcut-reset"
+                    type="button"
+                    aria-label="关闭按住说话"
+                    title="关闭按住说话"
+                  ><img src="./assets/icons/删除.svg" alt="" /></button>
+                  <span class="toggle-hint">聊天窗口获得焦点时，按住此键说话，松开即停止</span>
+                </div>
+              </div>
+
+              <div class="setting-row">
                 <label for="desktop-language">语言</label>
                 <select id="desktop-language">
                   <option value="auto">跟随系统</option>

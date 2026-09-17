@@ -100,6 +100,10 @@ main {
   padding: 24px;
 }
 
+.shortcut-recorder.muted { color: var(--text-4); }
+.shortcut-field { flex-wrap: wrap; }
+.shortcut-field .toggle-hint { flex-basis: 100%; }
+
 .close-button {
   display: grid;
   width: 32px;
