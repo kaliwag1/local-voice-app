@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { computerUseMcpServer } from '../../server/src/backend/adapters/acp/builtin-mcp.mjs'
+import { computerUseMcpServer } from '../../shared/backend/computer-use.mjs'
 
 export function runningApps(result) {
   if (result?.isError) throw new Error('Could not list running apps.')

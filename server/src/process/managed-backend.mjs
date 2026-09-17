@@ -125,7 +125,7 @@ function spawnSpec(root, platform, env, driver) {
       detached: platform !== 'win32',
       // The Gateway runs as an Electron utility process with no usable
       // console handles. Inheriting them makes the node-mode child (and the
-      // OpenCode binary under it) allocate a console of its own, which shows
+      // backend binary under it) allocate a console of its own, which shows
       // up as a blank terminal window on Windows. Pipe instead and forward
       // the output to the Gateway log, where it is actually useful.
       stdio: ['ignore', 'pipe', 'pipe'],

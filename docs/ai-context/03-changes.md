@@ -2,6 +2,11 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-17 — layering fix (Claude)
+- The computer-use MCP descriptor moved to `shared/backend/computer-use.mjs` so the desktop's
+  screen capture no longer imports Gateway internals (`server/test/dependency-boundaries.test.mjs`
+  enforces this; run it after touching imports across `desktop/`, `server/`, `web/`).
+
 ## 2026-09-17 — screen-aware questions
 - Added the **Look at my screen** monitor button beside the attachment button. It lists running
   Windows apps through the bundled computer-use MCP, captures the chosen app's key window with
