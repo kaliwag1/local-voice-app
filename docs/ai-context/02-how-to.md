@@ -36,6 +36,8 @@ The sidebar text under the picker says which mode is running. Red indicator duri
 Context window: sidebar picker writes `realtime-voice-chat\.selected-voice-context` (read by the
 launcher too) and reloads the current model in place; env `QWEN_AUDIO_LOCAL_MODEL_CONTEXT` is the
 fallback default (32768).
+Voice: sidebar picker writes `realtime-voice-chat\.selected-voice`; clips for cloning go in
+`realtime-voice-chat\voices\` (10–20 s, one clear speaker). Only the speech service restarts.
 
 ## Running things on the PC from an AI session
 Assistants in a sandbox (Codex, Cowork's Linux VM) **cannot run Windows executables** and may see a

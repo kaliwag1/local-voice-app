@@ -2,10 +2,13 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   CONTEXT_LENGTH_OPTIONS,
+  VOICE_PRESETS,
   canPreload,
   createLocalModelSwitcher,
   ownsSpeech,
   parseContextLength,
+  parseVoice,
+  speechArguments,
   updateOpenCodeConfig,
 } from '../src/local-model-switch.mjs'
 
@@ -19,10 +22,11 @@ const models = [
 ]
 
 // Default: 4 GiB model, 8 GiB free → fits beside the old one (background mode).
-function fixture({ failAt = '', ownership = 'owned', freeVram = 8 * GiB } = {}) {
+function fixture({ failAt = '', ownership = 'owned', freeVram = 8 * GiB, voiceFiles = ['jake.wav', 'notes.txt'] } = {}) {
   const paths = {
     lms: 'lms.exe', speech: speechPath, opencodeConfig: 'opencode.json',
-    selection: 'selection', contextLength: 'context', workdir: 'C:\\voice',
+    selection: 'selection', contextLength: 'context', voice: 'voice',
+    voicesDir: 'C:\\voice\\voices', workdir: 'C:\\voice',
   }
   const data = new Map([
     ['opencode.json', JSON.stringify({ model: `lmstudio/${oldKey}`, provider: {
@@ -44,6 +48,7 @@ function fixture({ failAt = '', ownership = 'owned', freeVram = 8 * GiB } = {}) 
     },
     write: async (path, content) => { calls.push(['write', path]); fail(`write:${path}`); data.set(path, content) },
     gpuMemory: async () => freeVram,
+    listDir: async () => voiceFiles,
     onProgress: event => progress.push(event),
     lms: async (...args) => {
       calls.push(['lms', ...args])
@@ -55,7 +60,7 @@ function fixture({ failAt = '', ownership = 'owned', freeVram = 8 * GiB } = {}) 
     },
     listener: async () => activeSpeech,
     stopSpeech: async () => { calls.push(['stopSpeech']); activeSpeech = null },
-    startSpeech: async key => { calls.push(['startSpeech', key]); fail('startSpeech'); activeSpeech = {
+    startSpeech: async (key, voice) => { calls.push(['startSpeech', key, voice]); fail('startSpeech'); activeSpeech = {
       pid: 43, executablePath: speechPath, commandLine: speechPath,
     } },
     gateway: {
@@ -80,7 +85,56 @@ test('lists only installed LLMs, current selection and context size', async () =
     selectedModelKey: oldKey,
     contextLength: 32768,
     contextLengthOptions: CONTEXT_LENGTH_OPTIONS,
+    voice: 'jean',
+    voiceOptions: [
+      ...VOICE_PRESETS.map(id => ({ id, kind: 'preset', label: id[0].toUpperCase() + id.slice(1) })),
+      { id: 'jake.wav', kind: 'file', label: 'jake' },
+    ],
+    voicesDir: 'C:\\voice\\voices',
   })
+})
+
+test('changing the voice restarts only the speech service and remembers the choice', async () => {
+  const state = fixture()
+  assert.deepEqual(await state.controller.setVoice('alba'), { ok: true, voice: 'alba' })
+  assert.equal(state.data.get('voice').trim(), 'alba')
+  const names = state.calls.map(call => call[0])
+  assert.ok(names.includes('stopSpeech') && names.includes('startSpeech'))
+  assert.ok(!names.includes('gateway.stop') && !names.some(name => name === 'lms' && false))
+  assert.ok(!state.calls.some(call => call[0] === 'lms' && ['load', 'unload'].includes(call[1])))
+  const start = state.calls.find(call => call[0] === 'startSpeech')
+  assert.deepEqual(start, ['startSpeech', oldKey, 'alba'])
+  // A cloned voice from the voices folder is passed by full path.
+  assert.deepEqual(await state.controller.setVoice('jake.wav'), { ok: true, voice: 'jake.wav' })
+  assert.equal(state.calls.filter(call => call[0] === 'startSpeech').at(-1)[2], 'C:\\voice\\voices\\jake.wav')
+  // Later model switches keep using it.
+  await state.controller.switchModel(newKey)
+  assert.equal(state.calls.filter(call => call[0] === 'startSpeech').at(-1)[2], 'C:\\voice\\voices\\jake.wav')
+})
+
+test('rejects unknown voices and paths, and restores the old voice when the new one fails', async () => {
+  const state = fixture()
+  for (const bad of ['robot', '..\\secret.wav', 'C:\\elsewhere\\x.wav', 'notes.txt']) {
+    assert.equal((await state.controller.setVoice(bad)).ok, false, bad)
+  }
+  assert.ok(!state.calls.some(call => call[0] === 'stopSpeech'))
+  const failing = fixture({ failAt: 'startSpeech' })
+  const result = await failing.controller.setVoice('alba')
+  assert.equal(result.ok, false)
+  assert.equal(result.voice, 'jean')
+  assert.equal(failing.data.has('voice'), false)
+  assert.equal(failing.calls.filter(call => call[0] === 'startSpeech').at(-1)[2], 'jean')
+})
+
+test('voice parsing and speech arguments', () => {
+  assert.deepEqual(parseVoice('marius'), { id: 'marius', kind: 'preset' })
+  assert.deepEqual(parseVoice('me.wav', ['me.wav']), { id: 'me.wav', kind: 'file' })
+  assert.equal(parseVoice('me.wav', []), null)
+  assert.equal(parseVoice('sub/me.wav', ['sub/me.wav']), null)
+  const args = speechArguments('m', 'alba')
+  assert.equal(args[args.indexOf('--pocket_tts_voice') + 1], 'alba')
+  assert.equal(args.at(-1), '--no_smart_turn')
+  assert.ok(!speechArguments('m', null).includes('--pocket_tts_voice'))
 })
 
 test('preloads the new model beside the old one and only then swaps services', async () => {

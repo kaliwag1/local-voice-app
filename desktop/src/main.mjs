@@ -923,6 +923,16 @@ ipcMain.handle('qwen-audio-agent:local-model-context', async (event, contextLeng
   return localModelSwitcher.setContextLength(contextLength)
 })
 
+ipcMain.handle('qwen-audio-agent:local-voice-set', async (event, voice) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) {
+    throw new Error('Only the desktop conversation window can change the voice.')
+  }
+  if (typeof voice !== 'string' || voice.length > 250) {
+    return { ok: false, error: 'Choose a listed voice.' }
+  }
+  return localModelSwitcher.setVoice(voice)
+})
+
 ipcMain.handle('qwen-audio-agent:audio-file-pick', async event => {
   if (!mainWindow || event.sender !== mainWindow.webContents) {
     throw new Error('Only the desktop conversation window can choose audio files.')

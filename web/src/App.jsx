@@ -226,6 +226,9 @@ export default function App() {
   const [localContextLength, setLocalContextLength] = useState(0)
   const [localContextOptions, setLocalContextOptions] = useState([])
   const [localContextChanging, setLocalContextChanging] = useState(false)
+  const [localVoice, setLocalVoice] = useState('')
+  const [localVoiceOptions, setLocalVoiceOptions] = useState([])
+  const [localVoiceChanging, setLocalVoiceChanging] = useState(false)
   const [voiceEnabled, setVoiceEnabled] = useState(() => initialVoiceEnabled({
     desktopOrbMode,
     clientType: activeClientType,
@@ -305,6 +308,8 @@ export default function App() {
       setLocalModelKey(result.selectedModelKey || '')
       if (Number.isFinite(result.contextLength)) setLocalContextLength(result.contextLength)
       if (Array.isArray(result.contextLengthOptions)) setLocalContextOptions(result.contextLengthOptions)
+      if (typeof result.voice === 'string') setLocalVoice(result.voice)
+      if (Array.isArray(result.voiceOptions)) setLocalVoiceOptions(result.voiceOptions)
       setLocalModelError('')
     } catch (error) {
       setLocalModelError(error.message || 'Local models are unavailable.')
@@ -1349,9 +1354,34 @@ export default function App() {
     }
   }
 
+  const changeLocalVoice = async value => {
+    if (!value || value === localVoice || localVoiceChanging || localModelSwitching || localContextChanging) return
+    const setVoice = window.qwenAudioAgentDesktop?.setLocalVoice
+    if (typeof setVoice !== 'function') return
+    setLocalModelError('')
+    setLocalVoiceChanging(true)
+    try {
+      const result = await setVoice(value)
+      if (!result?.ok) setLocalModelError(result?.error || 'Could not change the voice.')
+      if (typeof result?.voice === 'string') setLocalVoice(result.voice)
+    } catch (error) {
+      setLocalModelError(error.message || 'Could not change the voice.')
+    } finally {
+      setLocalVoiceChanging(false)
+      setLocalModelProgress(null)
+    }
+  }
+
+  const localModelBusy = localModelSwitching || localContextChanging || localVoiceChanging
+
   const localModelProgressText = (() => {
     const progress = localModelProgress
-    if (!progress) return localModelSwitching ? 'Switching…' : localContextChanging ? 'Reloading model…' : ''
+    if (!progress) {
+      if (localModelSwitching) return 'Switching…'
+      if (localContextChanging) return 'Reloading model…'
+      if (localVoiceChanging) return 'Restarting speech with the new voice…'
+      return ''
+    }
     const name = progress.displayName || progress.modelKey || 'model'
     switch (progress.phase) {
       case 'loading':
@@ -1361,6 +1391,7 @@ export default function App() {
       case 'swapping': return `Switching services to ${name}…`
       case 'unloading': return 'Freeing the previous model…'
       case 'reloading': return `Reloading with a ${formatContextLength(progress.contextLength)} context…`
+      case 'voice': return `Restarting speech with the ${progress.voice} voice — takes about 15 seconds…`
       case 'recovering': return 'Something failed — restoring the previous model…'
       default: return ''
     }
@@ -1883,7 +1914,7 @@ export default function App() {
         <select
           id="local-model-select"
           value={localModelKey}
-          disabled={localModelSwitching || localModels.length === 0}
+          disabled={localModelBusy || localModels.length === 0}
           onChange={event => void changeLocalModel(event.target.value)}
         >
           {localModels.length === 0 && <option value="">Unavailable</option>}
@@ -1895,13 +1926,32 @@ export default function App() {
         <select
           id="local-context-select"
           value={localContextLength || ''}
-          disabled={localContextChanging || localModelSwitching || localContextOptions.length === 0}
+          disabled={localModelBusy || localContextOptions.length === 0}
           onChange={event => void changeLocalContext(event.target.value)}
         >
           {localContextOptions.length === 0 && <option value="">Unavailable</option>}
           {localContextOptions.map(option => <option key={option} value={option}>
             {formatContextLength(option)}{option === 32768 ? ' (default)' : ''}
           </option>)}
+        </select>
+        <label htmlFor="local-voice-select" title="Presets are built into Pocket TTS. Drop a WAV clip into the voices folder and refresh to clone a voice — all local.">Voice</label>
+        <select
+          id="local-voice-select"
+          value={localVoice}
+          disabled={localModelBusy || localVoiceOptions.length === 0}
+          onChange={event => void changeLocalVoice(event.target.value)}
+        >
+          {localVoiceOptions.length === 0 && <option value="">Unavailable</option>}
+          {localVoiceOptions.some(option => option.kind === 'preset') && <optgroup label="Built-in">
+            {localVoiceOptions.filter(option => option.kind === 'preset').map(option => <option key={option.id} value={option.id}>
+              {option.label}{option.id === 'jean' ? ' (default)' : ''}
+            </option>)}
+          </optgroup>}
+          {localVoiceOptions.some(option => option.kind === 'file') && <optgroup label="My voices folder">
+            {localVoiceOptions.filter(option => option.kind === 'file').map(option => <option key={option.id} value={option.id}>
+              {option.label}
+            </option>)}
+          </optgroup>}
         </select>
         {localModelProgressText && <small className="local-model-progress">{localModelProgressText}</small>}
         {localModelWarning && <small>{localModelWarning}</small>}

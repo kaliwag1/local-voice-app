@@ -2,6 +2,21 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-17 — voice picker (Claude)
+- **Voice** picker in the sidebar under the context picker. Pocket TTS presets (jean default, alba,
+  marius, javert, fantine, cosette, eponine, azelma) plus any WAV/MP3/FLAC/OGG clip in
+  `realtime-voice-chat\voices\` (voice cloning, local; README.txt there explains). Choosing one
+  restarts **only** the speech service with `--pocket_tts_voice <preset | full clip path>` (~15 s);
+  model and Gateway untouched. Stored as `realtime-voice-chat\.selected-voice` (preset name or bare
+  file name — never a path; the renderer cannot point TTS at arbitrary files). Launcher reads it too.
+- `setVoice()` in `local-model-switch.mjs`, IPC `qwen-audio-agent:local-voice-set`, `speechArguments()`
+  is now the single source of the speech command line (mirror in `Start My Voice App.ps1`). Model
+  switches pass the chosen voice when they restart speech. Rollback to the old voice if the new one
+  fails to start. 21 switcher tests pass. **Needs Windows rebuild** + a listen test; the pocket voice
+  flag name (`--pocket_tts_voice`) was read from the installed `speech_to_speech` package, not run live.
+- No "Preview" button yet: the speech service has no standalone synth endpoint, so previewing would
+  mean a restart anyway. Possible later via a small direct `pocket_tts` call.
+
 ## 2026-09-17 — background model switching + context-size picker (Claude)
 - **Switching no longer takes the app down for the whole load.** `desktop/src/local-model-switch.mjs`
   now loads the new model *first* while the Gateway and speech service keep running on the old one,

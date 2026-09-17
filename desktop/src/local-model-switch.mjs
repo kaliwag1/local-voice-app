@@ -1,7 +1,7 @@
 import { spawn, execFile } from 'node:child_process'
 import { promises as fs } from 'node:fs'
 import { homedir } from 'node:os'
-import { join, resolve } from 'node:path'
+import path, { join, resolve } from 'node:path'
 import net from 'node:net'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
@@ -14,6 +14,11 @@ const SPEECH_PORT = 8765
 // `.selected-voice-context` file written by setContextLength below.
 const DEFAULT_CONTEXT_LENGTH = Number(process.env.QWEN_AUDIO_LOCAL_MODEL_CONTEXT || 32768)
 export const CONTEXT_LENGTH_OPTIONS = [16384, 32768, 65536, 131072]
+// Pocket TTS ships these speaker presets; anything else is a WAV/MP3 dropped in
+// the `voices` folder next to the launcher (voice cloning, fully local).
+export const VOICE_PRESETS = ['jean', 'alba', 'marius', 'javert', 'fantine', 'cosette', 'eponine', 'azelma']
+export const DEFAULT_VOICE = 'jean'
+const VOICE_FILE_EXTENSIONS = ['.wav', '.mp3', '.flac', '.ogg']
 // Loading a second model beside the running one needs its weights plus a KV
 // cache for the requested context in free VRAM. The margin covers the cache
 // and CUDA workspace; below it LM Studio would spill to system RAM and crawl.
@@ -43,6 +48,8 @@ function defaultPaths(env = process.env, root = env.QWEN_AUDIO_LOCAL_VOICE_ROOT
     opencodeConfig: join(home, '.config', 'opencode', 'opencode.json'),
     selection: join(root, '.selected-voice-model'),
     contextLength: join(root, '.selected-voice-context'),
+    voice: join(root, '.selected-voice'),
+    voicesDir: join(root, 'voices'),
     workdir: root,
   }
 }
@@ -113,14 +120,22 @@ function ownsSpeech(listener, expectedPath) {
   return normalizeWindowsPath(listener.commandLine).includes(target)
 }
 
-function launchSpeech(file, modelKey, workdir) {
-  const child = spawn(file, [
+// Mirror of the argument list in Start My Voice App.ps1 — keep both in step.
+function speechArguments(modelKey, voice) {
+  return [
     'serve', '--device', 'cpu', '--stt', 'parakeet-tdt',
     '--llm_backend', 'chat-completions', '--model_name', modelKey,
     '--responses_api_base_url', 'http://127.0.0.1:1234/v1',
     '--responses_api_api_key', 'lm-studio', '--tts', 'pocket',
+    ...(voice ? ['--pocket_tts_voice', voice] : []),
     '--no_smart_turn',
-  ], { cwd: workdir, detached: true, stdio: 'ignore', windowsHide: true })
+  ]
+}
+
+function launchSpeech(file, modelKey, workdir, voice) {
+  const child = spawn(file, speechArguments(modelKey, voice), {
+    cwd: workdir, detached: true, stdio: 'ignore', windowsHide: true,
+  })
   child.unref()
 }
 
@@ -156,6 +171,22 @@ function parseModels(output) {
     }))
 }
 
+function isVoiceFileName(name) {
+  const lower = String(name || '').toLowerCase()
+  return VOICE_FILE_EXTENSIONS.some(extension => lower.endsWith(extension))
+}
+
+// A voice choice is a preset name or the bare file name of something in the
+// voices folder — never an arbitrary path, so the renderer cannot point the
+// speech service at files elsewhere on disk.
+function parseVoice(value, files = []) {
+  const trimmed = String(value ?? '').trim()
+  if (!trimmed) return null
+  if (VOICE_PRESETS.includes(trimmed)) return { id: trimmed, kind: 'preset' }
+  if (isVoiceFileName(trimmed) && !/[\\/]/.test(trimmed) && files.includes(trimmed)) return { id: trimmed, kind: 'file' }
+  return null
+}
+
 function parseContextLength(value) {
   const number = Number(String(value ?? '').trim())
   return CONTEXT_LENGTH_OPTIONS.includes(number) ? number : null
@@ -177,9 +208,10 @@ export function createLocalModelSwitcher({
   write = replaceFile,
   listener = speechListener,
   gpuMemory = freeGpuMemory,
+  listDir = async dir => { try { return await fs.readdir(dir) } catch (error) { if (error.code === 'ENOENT') return []; throw error } },
   stopSpeech = async info => { process.kill(info.pid); await waitForPort(SPEECH_PORT, false) },
-  startSpeech = async modelKey => {
-    launchSpeech(paths.speech, modelKey, paths.workdir)
+  startSpeech = async (modelKey, voice) => {
+    launchSpeech(paths.speech, modelKey, paths.workdir, voice)
     await waitForPort(SPEECH_PORT, true, 120_000)
   },
   gateway = { ownership: () => 'unavailable', stop: async () => {}, start: async () => {}, resetBackendSessions: async () => {} },
@@ -204,6 +236,22 @@ export function createLocalModelSwitcher({
     return parseContextLength(await readOptional(paths.contextLength)) || DEFAULT_CONTEXT_LENGTH
   }
 
+  async function voiceFiles() {
+    return (await listDir(paths.voicesDir)).filter(isVoiceFileName).sort()
+  }
+
+  async function selectedVoice(files) {
+    return parseVoice(await readOptional(paths.voice), files) || { id: DEFAULT_VOICE, kind: 'preset' }
+  }
+
+  // What the speech service is told: preset names as-is, files by full path.
+  function voiceArgument(voice) {
+    // The speech service only runs on Windows; keep backslashes even when the
+    // tests run under a POSIX Node.
+    const joinVoicePath = /^[a-z]:\\/i.test(paths.voicesDir) ? path.win32.join : join
+    return voice.kind === 'file' ? joinVoicePath(paths.voicesDir, voice.id) : voice.id
+  }
+
   async function loadedModels() {
     const loaded = parseJson(await lms('ps', '--json'), 'LM Studio loaded-model list')
     if (!Array.isArray(loaded)) throw new Error('LM Studio returned an invalid loaded-model list.')
@@ -215,6 +263,7 @@ export function createLocalModelSwitcher({
   }
 
   async function list() {
+    const files = await voiceFiles()
     const models = parseModels(await lms('ls', '--llm', '--json'))
     let selectedModelKey = (await readOptional(paths.selection)).trim() || null
     if (!selectedModelKey) {
@@ -227,6 +276,12 @@ export function createLocalModelSwitcher({
       selectedModelKey,
       contextLength: await contextLength(),
       contextLengthOptions: CONTEXT_LENGTH_OPTIONS,
+      voice: (await selectedVoice(files)).id,
+      voiceOptions: [
+        ...VOICE_PRESETS.map(id => ({ id, kind: 'preset', label: id[0].toUpperCase() + id.slice(1) })),
+        ...files.map(id => ({ id, kind: 'file', label: id.replace(/\.[^.]+$/, '') })),
+      ],
+      voicesDir: paths.voicesDir,
     }
   }
 
@@ -252,6 +307,7 @@ export function createLocalModelSwitcher({
           error: `Another program owns the speech service (${speech.executablePath || `pid ${speech.pid}`}). Close it before changing models.` }
       }
       const length = await contextLength()
+      const voice = voiceArgument(await selectedVoice(await voiceFiles()))
       const loaded = await loadedModels()
       const oldLoaded = loaded.find(item => item.modelKey === previousKey)
       const chosenAlreadyLoaded = loaded.some(item => item.modelKey === chosen.modelKey)
@@ -284,7 +340,7 @@ export function createLocalModelSwitcher({
         if (speech) { await stopSpeech(speech); speechStopped = true }
         await write(paths.opencodeConfig, after); configChanged = true
         speechStartAttempted = true
-        await startSpeech(chosen.modelKey)
+        await startSpeech(chosen.modelKey, voice)
         await write(paths.selection, `${chosen.modelKey}\n`); selectionChanged = true
         // The backend's remembered coordinator session is pinned to the old
         // model; OpenCode rejects prompts on it once that model is gone from
@@ -316,7 +372,7 @@ export function createLocalModelSwitcher({
         if (configChanged) await recover(() => write(paths.opencodeConfig, before))
         if (newLoaded) await recover(() => lms('unload', chosen.modelKey))
         if (oldUnloaded) await recover(() => loadModel(previousKey, length))
-        if (speechStopped) await recover(() => startSpeech(previousKey))
+        if (speechStopped) await recover(() => startSpeech(previousKey, voice))
         if (gatewayStopped) await recover(() => gateway.start())
         progress({ phase: 'failed', mode, modelKey: previousKey })
         return { ok: false, selectedModelKey: previousKey,
@@ -374,7 +430,55 @@ export function createLocalModelSwitcher({
     }
   }
 
-  return { list, switchModel, setContextLength }
+  // Change the speaking voice: only the speech service restarts (10–20 s);
+  // the model and Gateway are untouched.
+  async function setVoice(value) {
+    if (pending) return { ok: false, error: 'A model switch is already in progress.' }
+    pending = true
+    try {
+      const files = await voiceFiles()
+      const current = await selectedVoice(files)
+      const chosen = parseVoice(value, files)
+      if (!chosen) return { ok: false, voice: current.id, error: 'Choose a listed voice, or drop a WAV file into the voices folder and refresh.' }
+      if (chosen.id === current.id) return { ok: true, voice: current.id }
+      const { selectedModelKey } = await list()
+      if (!selectedModelKey) return { ok: false, voice: current.id, error: 'No local model is selected yet.' }
+      const speech = await listener()
+      if (speech && !ownsSpeech(speech, paths.speech)) {
+        return { ok: false, voice: current.id,
+          error: `Another program owns the speech service (${speech.executablePath || `pid ${speech.pid}`}). Close it before changing voices.` }
+      }
+      let speechStopped = false
+      try {
+        progress({ phase: 'voice', mode: 'voice', voice: chosen.id })
+        if (speech) { await stopSpeech(speech); speechStopped = true }
+        await startSpeech(selectedModelKey, voiceArgument(chosen))
+        await write(paths.voice, `${chosen.id}\n`)
+        progress({ phase: 'done', mode: 'voice', voice: chosen.id })
+        return { ok: true, voice: chosen.id }
+      } catch (error) {
+        const recoveryErrors = []
+        const stray = await listener().catch(() => null)
+        if (stray && ownsSpeech(stray, paths.speech)) {
+          try { await stopSpeech(stray) } catch (failure) { recoveryErrors.push(failure.message) }
+        }
+        if (speechStopped) {
+          try { await startSpeech(selectedModelKey, voiceArgument(current)) } catch (failure) { recoveryErrors.push(failure.message) }
+        }
+        progress({ phase: 'failed', mode: 'voice', voice: current.id })
+        return { ok: false, voice: current.id,
+          error: recoveryErrors.length
+            ? `${error.message} The previous voice could not be restored either: ${recoveryErrors.join('; ')}`
+            : error.message }
+      }
+    } catch (error) {
+      return { ok: false, error: error.message }
+    } finally {
+      pending = false
+    }
+  }
+
+  return { list, switchModel, setContextLength, setVoice }
 }
 
-export { canPreload, defaultPaths, ownsSpeech, parseContextLength, parseModels, updateOpenCodeConfig }
+export { canPreload, defaultPaths, ownsSpeech, parseContextLength, parseModels, parseVoice, speechArguments, updateOpenCodeConfig }

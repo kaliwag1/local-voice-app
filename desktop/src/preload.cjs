@@ -51,6 +51,10 @@ contextBridge.exposeInMainWorld('qwenAudioAgentDesktop', {
     'qwen-audio-agent:local-model-context',
     contextLength,
   ),
+  setLocalVoice: voice => ipcRenderer.invoke(
+    'qwen-audio-agent:local-voice-set',
+    voice,
+  ),
   onLocalModelProgress: callback => {
     if (typeof callback !== 'function') return () => {}
     const listener = (_event, progress) => callback(progress)

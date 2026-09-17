@@ -9,6 +9,7 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 - Live checks outstanding: auto-titles / rename (double-click) / pin; Settings → Health;
   "Look at my screen"; model switch in both `background` and `sequential` mode (sidebar text says
   which); context-window picker (check `lms ps` shows the new context, and that the launcher keeps it).
+  Voice picker: pick Alba, listen; drop a WAV in `voices\`, refresh (↻), pick it, listen.
 - Report any breakage in `03-changes.md`. Next work comes from the Ideas list — ask Jake which.
 
 ## Agreed next (in this order)
@@ -16,6 +17,8 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 2. 🔧 **Chat titles** — coded and tested; in the 03:16 build, awaiting Jake's live check.
 3. 🔧 **Health panel** — built; collector tested against local services. In the 03:16 build, awaiting Settings UI check.
 4. 🔧 **Screen-aware questions** — built; in the 03:16 build, awaiting screenshot-to-answer check.
+6. 🔧 **Voice picker** — Pocket TTS presets + cloned voices from `voices\`; speech-only restart.
+   Awaiting rebuild + listen test.
 5. 🔧 **Background model switching** — built and unit-tested (preload when VRAM allows, services stay up
    during the load, context-size picker). Awaiting rebuild + live check.
 
