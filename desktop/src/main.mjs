@@ -97,6 +97,7 @@ import { createElectronGatewayCredentialStore } from './gateway-credential-store
 import { createLocalModelSwitcher } from './local-model-switch.mjs'
 import { transcribeAudioFile } from './local-audio-transcription.mjs'
 import { collectHealthDiagnostics } from './health-diagnostics.mjs'
+import { callScreenTool, runningApps, screenshotImage } from './screen-capture.mjs'
 
 // Gateway paths belong to the Gateway; Electron's userData holds only client
 // preferences, credentials, presentation assets and local caches.
@@ -1026,6 +1027,40 @@ ipcMain.handle('qwen-audio-agent:settings-runtime-status', async event => {
     throw new Error('无权读取运行状态')
   }
   return runtimeStatus()
+})
+
+ipcMain.handle('qwen-audio-agent:screen-apps', async event => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Only the chat window can list apps.')
+  return runningApps(await callScreenTool('list_apps'))
+})
+
+let screenCaptureInFlight = false
+ipcMain.handle('qwen-audio-agent:screen-capture', async (event, target) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Only the chat window can capture an app.')
+  const name = String(target || '').trim()
+  if (!name || name.length > 240) throw new Error('Choose an app to capture.')
+  if (screenCaptureInFlight) throw new Error('A screenshot is already being captured.')
+  screenCaptureInFlight = true
+  const window = mainWindow
+  const wasVisible = window.isVisible()
+  try {
+    window.hide()
+    await new Promise(resolve => setTimeout(resolve, 250))
+    const image = nativeImage.createFromDataURL(screenshotImage(await callScreenTool('get_app_state', { app: name })))
+    if (image.isEmpty()) throw new Error('The screenshot could not be decoded.')
+    const size = image.getSize()
+    if (size.width < 64 || size.height < 64) {
+      throw new Error('The app appears minimized or unavailable. Restore its window, then capture again.')
+    }
+    const preview = Math.max(size.width, size.height) > 2400
+      ? image.resize(size.width >= size.height ? { width: 2400 } : { height: 2400 }) : image
+    const bytes = preview.toJPEG(88)
+    if (bytes.length > 8 * 1024 * 1024) throw new Error('The screenshot exceeds the attachment limit.')
+    return { app: name, url: `data:image/jpeg;base64,${bytes.toString('base64')}`, mime: 'image/jpeg', filename: 'screen-capture.jpg' }
+  } finally {
+    screenCaptureInFlight = false
+    if (!window.isDestroyed() && wasVisible) { window.show(); window.focus() }
+  }
 })
 
 let healthCheckInFlight = null

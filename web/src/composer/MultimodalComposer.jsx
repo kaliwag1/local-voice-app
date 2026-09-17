@@ -42,12 +42,18 @@ export default function MultimodalComposer({
   compact = false,
   busy = false,
   onStop = null,
+  onListScreenApps = null,
+  onCaptureScreenApp = null,
 }) {
   const [text, setText] = useState('')
   const [attachments, setAttachments] = useState([])
   const [error, setError] = useState('')
   const [visualPanelHost, setVisualPanelHost] = useState(null)
   const picker = useRef(null)
+  const [screenApps, setScreenApps] = useState(null)
+  const [screenApp, setScreenApp] = useState('')
+  const [capturingScreen, setCapturingScreen] = useState(false)
+  const [loadingScreenApps, setLoadingScreenApps] = useState(false)
   const updateAttachments = useCallback(next => {
     setAttachments(next)
   }, [])
@@ -66,8 +72,36 @@ export default function MultimodalComposer({
     }
   }, [attachments, updateAttachments])
 
+  const chooseScreenApp = async () => {
+    setLoadingScreenApps(true)
+    setError('')
+    try {
+      const apps = await onListScreenApps()
+      setScreenApps(apps)
+      setScreenApp(apps[0]?.app || '')
+      if (!apps.length) setError('No running app windows were found. Open the app you want to ask about and try again.')
+    } catch (reason) { setError(reason?.message || String(reason)) }
+    finally { setLoadingScreenApps(false) }
+  }
+
+  const captureScreen = async () => {
+    setCapturingScreen(true)
+    setError('')
+    try {
+      const image = await onCaptureScreenApp(screenApp)
+      const item = {
+        id: crypto.randomUUID(), screenApp: image.app,
+        part: createInputFilePart(image, attachments.length),
+      }
+      setAttachments(current => [...current, item])
+      setScreenApps(null)
+    } catch (reason) { setError(reason?.message || String(reason)) }
+    finally { setCapturingScreen(false) }
+  }
+
   const submit = event => {
     event.preventDefault()
+    if (capturingScreen) return
     const content = text.trim()
     if (!content && !attachments.length) return
     const parts = withAttachmentAnchors([
@@ -92,6 +126,26 @@ export default function MultimodalComposer({
       addFiles(event.dataTransfer.files)
     }}
   >
+    {screenApps && <div className="screen-capture-picker">
+      <label htmlFor="screen-app-select">Choose the app to look at</label>
+      <select id="screen-app-select" value={screenApp} disabled={capturingScreen}
+        onChange={event => setScreenApp(event.target.value)}>
+        {screenApps.map(app => <option key={app.app} value={app.app}>{app.label}</option>)}
+      </select>
+      <div>
+        <button type="button" disabled={!screenApp || capturingScreen} onClick={captureScreen}>
+          {capturingScreen ? 'Capturing…' : 'Capture window'}
+        </button>
+        <button type="button" disabled={capturingScreen} onClick={() => setScreenApps(null)}>Cancel</button>
+      </div>
+    </div>}
+    {attachments.filter(item => item.screenApp).map(item => <div className="screen-capture-preview" key={item.id}>
+      <img src={item.part.url} alt={`Screenshot of ${item.screenApp}`} />
+      <div><strong>{item.screenApp}</strong><small>Screenshot attached. Add your question, then send.</small>
+        <button type="button" onClick={() => setText("What's this error?")}>What's this error?</button>
+        <button type="button" onClick={() => setText('Summarise this page.')}>Summarise this page</button>
+      </div>
+    </div>)}
     {visualStreamSupported && <div
       className="visual-stream-dock"
       ref={setVisualPanelHost}
@@ -114,6 +168,10 @@ export default function MultimodalComposer({
         aria-label={t('添加图片或文件')}
         onClick={() => picker.current?.click()}
       >＋</button>
+      {onListScreenApps && onCaptureScreenApp && <button
+        className="composer-screen" type="button" title="Look at my screen" aria-label="Look at my screen"
+        disabled={loadingScreenApps || capturingScreen} onClick={chooseScreenApp}
+      >{loadingScreenApps ? '…' : <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>}</button>}
       {visualStreamSupported && <VisualStreamControl
         available={visualStreamAvailable}
         inputEnabled={voiceInputEnabled}
@@ -156,7 +214,7 @@ export default function MultimodalComposer({
         title="Stop the current reply and any running task"
         aria-label="Stop"
       ><span className="composer-stop-icon" aria-hidden="true" /> Stop</button>}
-      <button className="composer-send" type="submit">{t('发送')}</button>
+      <button className="composer-send" type="submit" disabled={capturingScreen}>{t('发送')}</button>
     </div>
     {error && <small className="composer-error" role="alert">{error}</small>}
   </form>

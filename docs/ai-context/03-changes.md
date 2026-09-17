@@ -2,6 +2,19 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-17 — screen-aware questions
+- Added the **Look at my screen** monitor button beside the attachment button. It lists running
+  Windows apps through the bundled computer-use MCP, captures the chosen app's key window with
+  `get_app_state`, then adds a screenshot preview to the composer. Type a question or choose an
+  error/page-summary prompt, then Send. Pending captures are not automatically shared with voice.
+- The desktop hides during capture and returns even on failure. Images are bounded to 2400 pixels
+  and the existing 8 MB attachment limit. Tiny minimized-window placeholders are rejected. Changing
+  chats resets the composer so screenshots cannot carry into another chat.
+- The capture bridge only permits app listing and read-only app-state capture. The actual bundled
+  Windows MCP app-list format was checked in the real session; a minimized Settings window returned
+  a placeholder (now rejected). Unit tests, web tests and Vite build pass. Packaged UI and a full
+  screenshot-to-model answer still need checking after Jake rebuilds.
+
 ## 2026-09-17 — local Health page
 - Added **Settings → Health** with manual refresh and a 10-second refresh while visible.
   Shows LM Studio's loaded models and actual loaded context (separate from model maximum),

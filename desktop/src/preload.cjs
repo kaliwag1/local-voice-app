@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld('qwenAudioAgentDesktop', {
     sessionId,
   ),
   listLocalModels: () => ipcRenderer.invoke('qwen-audio-agent:local-models-list'),
+  listScreenApps: () => ipcRenderer.invoke('qwen-audio-agent:screen-apps'),
+  captureScreenApp: app => ipcRenderer.invoke('qwen-audio-agent:screen-capture', app),
   revealPath: path => ipcRenderer.invoke('qwen-audio-agent:reveal-path', path),
   switchLocalModel: modelKey => ipcRenderer.invoke(
     'qwen-audio-agent:local-model-switch',

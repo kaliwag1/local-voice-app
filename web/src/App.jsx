@@ -1874,6 +1874,7 @@ export default function App() {
       </div>
 
       {composerEnabled && <MultimodalComposer
+        key={sessionId}
         onSend={sendComposerInput}
         onVisualFrame={voice.sendImageFrame}
         onVisualStop={voice.clearImageBuffer}
@@ -1883,6 +1884,8 @@ export default function App() {
         voiceInputEnabled={voice.inputReady}
         connectionState={voice.connectionState}
         compact={desktopOrbMode}
+        onListScreenApps={desktopOrbMode ? window.qwenAudioAgentDesktop?.listScreenApps : null}
+        onCaptureScreenApp={desktopOrbMode ? window.qwenAudioAgentDesktop?.captureScreenApp : null}
         busy={somethingInFlight}
         onStop={stopEverything}
       />}
