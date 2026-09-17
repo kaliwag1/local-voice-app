@@ -57,6 +57,42 @@ function categoryForTool(update) {
   return 'run'
 }
 
+// File paths a tool call touched, so the UI can show "what did this do" and
+// open the folder. ACP gives structured `locations`; shell commands only
+// reveal paths in their text, so absolute Windows/POSIX paths are picked out
+// of the command as a best effort (quoted paths may contain spaces).
+const WINDOWS_PATH = /(?:"([A-Za-z]:\\[^"\r\n]+)"|'([A-Za-z]:\\[^'\r\n]+)'|([A-Za-z]:\\[^\s"'<>|;&,)]+))/g
+const POSIX_PATH = /(?:"(\/(?:[^"\r\n\/]+\/)*[^"\r\n\/]+)"|(?<![\w.:])(\/(?:[\w.@-]+\/)+[\w.@-]+))/g
+const WRITE_COMMAND = /\b(New-Item|Set-Content|Add-Content|Out-File|Copy-Item|Move-Item|Rename-Item|Remove-Item|mkdir|md|touch|cp|mv|rm|rmdir|del|copy|move|ren|rename|tee)\b|(?<![<>])>(?!>?&)/i
+
+function cleanPath(value) {
+  const path = String(value || '').trim().replace(/[\\/]+$/u, match => (match.length > 1 ? match[0] : match))
+  return path.length > 1 && path.length <= 1024 ? path : ''
+}
+
+export function pathsFromToolCall(update) {
+  const found = []
+  for (const location of Array.isArray(update?.locations) ? update.locations : []) {
+    found.push(cleanPath(location?.path))
+  }
+  const input = update?.rawInput && typeof update.rawInput === 'object' ? update.rawInput : {}
+  for (const key of ['path', 'file_path', 'filePath', 'filename', 'target', 'destination']) {
+    if (typeof input[key] === 'string') found.push(cleanPath(input[key]))
+  }
+  const command = typeof input.command === 'string' ? input.command : ''
+  if (command) {
+    for (const match of command.matchAll(WINDOWS_PATH)) found.push(cleanPath(match[1] || match[2] || match[3]))
+    for (const match of command.matchAll(POSIX_PATH)) found.push(cleanPath(match[1] || match[2]))
+  }
+  return [...new Set(found.filter(Boolean))].slice(0, 12)
+}
+
+export function toolCallWrites(update, category) {
+  if (category === 'write') return true
+  const command = typeof update?.rawInput?.command === 'string' ? update.rawInput.command : ''
+  return Boolean(command) && WRITE_COMMAND.test(command)
+}
+
 export function activityFromUpdate(update, known = new Map()) {
   if (update?.sessionUpdate === 'agent_thought_chunk') {
     return {
@@ -128,6 +164,11 @@ export function activityFromUpdate(update, known = new Map()) {
       || merged.rawInput?.command
       || '',
     ),
+  }
+  const paths = pathsFromToolCall(merged)
+  if (paths.length) {
+    activity.paths = paths
+    activity.writes = toolCallWrites(merged, activity.category)
   }
   if (id && ['completed', 'failed'].includes(merged.status)) known.delete(id)
   else if (id) known.set(id, merged)

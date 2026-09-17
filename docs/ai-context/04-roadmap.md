@@ -3,7 +3,7 @@
 Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 
 ## Agreed next (in this order)
-1. ⏳ **Task results with clickable paths** — task cards list files created/changed with "Open folder".
+1. 🔧 **Task results with clickable paths** — built, awaiting Jake's rebuild + check on Windows.
 2. ⏳ **Chat titles** — auto-title after first exchange (local model), rename on double-click, pin.
 3. ⏳ **Health panel** — LM Studio model/context/VRAM, speech, OpenCode, ports, in Settings.
 4. ⏳ **Screen-aware questions** — "look at my screen" button using the computer-use MCP screenshot.

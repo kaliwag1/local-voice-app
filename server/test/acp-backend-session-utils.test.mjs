@@ -94,3 +94,36 @@ test('updates remembered ACP Session metadata in place', () => {
     currentModeId: 'plan',
   })
 })
+
+test('tool activity carries the file paths it touched and whether it wrote', async () => {
+  const { pathsFromToolCall } = await import('../src/backend/adapters/acp/backend-session-utils.mjs')
+  const activity = activityFromUpdate({
+    sessionUpdate: 'tool_call',
+    toolCallId: 'tool-2',
+    name: 'bash',
+    title: 'Create folder',
+    status: 'completed',
+    rawInput: { command: 'New-Item -ItemType Directory -Path "C:\\Users\\JakeW\\OneDrive\\Desktop\\Hello World"' },
+  })
+  assert.deepEqual(activity.paths, ['C:\\Users\\JakeW\\OneDrive\\Desktop\\Hello World'])
+  assert.equal(activity.writes, true)
+
+  const read = activityFromUpdate({
+    sessionUpdate: 'tool_call',
+    toolCallId: 'tool-3',
+    name: 'read',
+    status: 'completed',
+    rawInput: { path: 'C:\\Users\\JakeW\\notes.txt' },
+    locations: [{ path: 'C:\\Users\\JakeW\\notes.txt', line: 1 }],
+  })
+  assert.deepEqual(read.paths, ['C:\\Users\\JakeW\\notes.txt'])
+  assert.equal(read.writes, false)
+
+  assert.deepEqual(pathsFromToolCall({ rawInput: { command: 'ls /home/jake/videos && cat /etc/hosts' } }),
+    ['/home/jake/videos', '/etc/hosts'])
+  assert.equal(pathsFromToolCall({ rawInput: { command: 'npm test' } }).length, 0)
+  // Plain commands without paths do not gain the keys at all.
+  assert.equal('paths' in activityFromUpdate({
+    sessionUpdate: 'tool_call', toolCallId: 't4', name: 'bash', rawInput: { command: 'git status' },
+  }), false)
+})

@@ -271,3 +271,22 @@ export function taskView(task, previous = {}) {
     ),
   }
 }
+
+// Files the task touched, for the card footer. Written paths come first;
+// read-only paths are shown only when nothing was written, so the list
+// answers "what did this task produce" rather than "what did it look at".
+export function taskFiles(task) {
+  const activity = Array.isArray(task?.activity) ? task.activity : []
+  const written = []
+  const read = []
+  for (const item of activity) {
+    if (item?.kind !== 'tool' || !Array.isArray(item.paths)) continue
+    for (const path of item.paths) (item.writes ? written : read).push(path)
+  }
+  const chosen = written.length ? written : read
+  return [...new Set(chosen)].slice(-8).map(path => ({
+    path,
+    name: path.split(/[\\/]/).filter(Boolean).pop() || path,
+    written: written.includes(path),
+  }))
+}

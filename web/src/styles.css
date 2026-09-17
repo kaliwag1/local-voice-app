@@ -1812,3 +1812,41 @@ article.user .message-body .inline-code { background: #5e44c9; color: #f0eaff; }
     transition: none;
   }
 }
+
+/* Files a task created/changed (or read), with a reveal button */
+.task-files {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-files li {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid #ffffff14;
+  border-radius: 8px;
+  background: #ffffff08;
+  font-size: 12px;
+}
+
+.task-file-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task-file-path { color: #8d899a; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
+
+.task-files button {
+  padding: 4px 9px;
+  border: 1px solid #785cf45c;
+  border-radius: 7px;
+  color: #e8e4f3;
+  background: #785cf42a;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.task-files button:hover { background: #785cf450; }

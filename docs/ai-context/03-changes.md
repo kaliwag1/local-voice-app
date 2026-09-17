@@ -3,6 +3,11 @@
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
 ## 2026-09-17 — session with Claude (Cowork)
+- **Task cards show the files they touched** with an "Open folder" button (reveals in Explorer via
+  `qwen-audio-agent:reveal-path` IPC; absolute + existing paths only). Paths come from ACP tool-call
+  `locations`/`rawInput` and from paths parsed out of shell commands; written paths are preferred over
+  read-only ones. `backend-session-utils.mjs` (`pathsFromToolCall`), `web/src/task-view.js` (`taskFiles`),
+  `App.jsx`, `preload.cjs`, `main.mjs`.
 - **Search results in English** — Bing provider had `mkt=zh-CN` hard-coded. Now `QWEN_AUDIO_WEB_SEARCH_MARKET`
   (set to `en-GB` in `config.env`) + `setlang`. `server/src/frontend/retrieval/providers/bing.mjs`.
 - **Stop button** in the composer — interrupts the spoken/streamed reply and cancels running tasks via

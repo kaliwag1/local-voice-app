@@ -397,3 +397,22 @@ test('preserves task artifacts across partial progress events', () => {
 
   assert.deepEqual(delivering.artifacts, artifacts)
 })
+
+test('taskFiles lists written paths first and falls back to read paths', async () => {
+  const { taskFiles } = await import('../src/task-view.js')
+  const written = taskFiles({ activity: [
+    { kind: 'tool', paths: ['C:\\Users\\JakeW\\notes.txt'], writes: false },
+    { kind: 'tool', paths: ['C:\\Users\\JakeW\\OneDrive\\Desktop\\Hello World'], writes: true },
+    { kind: 'tool', paths: ['C:\\Users\\JakeW\\OneDrive\\Desktop\\Hello World'], writes: true },
+  ] })
+  assert.deepEqual(written, [{
+    path: 'C:\\Users\\JakeW\\OneDrive\\Desktop\\Hello World', name: 'Hello World', written: true,
+  }])
+  const readOnly = taskFiles({ activity: [
+    { kind: 'tool', paths: ['/home/jake/videos'], writes: false },
+    { kind: 'plan', paths: ['ignored'] },
+  ] })
+  assert.deepEqual(readOnly, [{ path: '/home/jake/videos', name: 'videos', written: false }])
+  assert.deepEqual(taskFiles({ activity: [] }), [])
+  assert.deepEqual(taskFiles({}), [])
+})

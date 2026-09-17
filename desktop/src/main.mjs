@@ -16,8 +16,8 @@ import {
   existsSync,
   readFileSync,
 } from 'node:fs'
-import { readFile, writeFile } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
+import { readFile, stat, writeFile } from 'node:fs/promises'
+import { dirname, isAbsolute, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseEnv } from 'node:util'
 import {
@@ -859,6 +859,29 @@ function updateDesktopTaskSurface(value) {
 ipcMain.on('qwen-audio-agent:task-card-count', (event, value) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) return
   updateDesktopTaskSurface(value)
+})
+
+// "Open folder" on a task card: reveal a file the backend Agent touched.
+// Only absolute paths that exist are accepted; folders open directly, files
+// are selected in Explorer/Finder.
+ipcMain.handle('qwen-audio-agent:reveal-path', async (event, target) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) {
+    throw new Error('Only the desktop conversation window can reveal files.')
+  }
+  const path = String(target || '').trim()
+  if (!path || !isAbsolute(path) || /[\0\r\n]/.test(path)) return { ok: false, error: 'Not an absolute path.' }
+  let info
+  try {
+    info = await stat(path)
+  } catch {
+    return { ok: false, error: 'That file or folder no longer exists.' }
+  }
+  if (info.isDirectory()) {
+    const failure = await shell.openPath(path)
+    return failure ? { ok: false, error: failure } : { ok: true }
+  }
+  shell.showItemInFolder(path)
+  return { ok: true }
 })
 
 ipcMain.handle('qwen-audio-agent:local-models-list', async event => {

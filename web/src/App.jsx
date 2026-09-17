@@ -39,6 +39,7 @@ import {
   taskNeedsPresentation,
   taskLabel,
   taskView,
+  taskFiles,
 } from './task-view.js'
 import { taskHasArtifacts } from './task-artifacts.js'
 import useRealtimeVoice, {
@@ -1501,6 +1502,33 @@ export default function App() {
     </main>
   }
 
+  const revealTaskPath = async path => {
+    const reveal = window.qwenAudioAgentDesktop?.revealPath
+    if (typeof reveal !== 'function') {
+      try { await navigator.clipboard.writeText(path); setActivity('Path copied.') } catch { /* ignore */ }
+      return
+    }
+    try {
+      const result = await reveal(path)
+      if (result && result.ok === false) setActivity(result.error || 'Could not open that location.')
+    } catch (error) {
+      setActivity(error?.message || 'Could not open that location.')
+    }
+  }
+
+  const renderTaskFiles = agentTask => {
+    const files = taskFiles(agentTask)
+    if (!files.length) return null
+    const wrote = files.some(file => file.written)
+    return <ul className="task-files" aria-label={wrote ? 'Files created or changed' : 'Files read'}>
+      {files.map(file => <li key={file.path} title={file.path}>
+        <span className="task-file-name">{file.name}</span>
+        <span className="task-file-path">{file.path}</span>
+        <button type="button" onClick={() => { void revealTaskPath(file.path) }}>Open folder</button>
+      </li>)}
+    </ul>
+  }
+
   const renderTask = agentTask => <aside
     key={`task:${agentTask.id}`}
     className={`agent-task ${agentTask.phase}${
@@ -1512,6 +1540,7 @@ export default function App() {
       <b>{taskLabel(agentTask)}</b>
       <small>{taskDetail(agentTask)}</small>
       <TaskArtifacts artifacts={agentTask.artifacts} />
+      {renderTaskFiles(agentTask)}
     </div>
     {!['failed', 'disconnected'].includes(agentTask.phase) && <div className="task-controls">
       {agentTask.authorization?.status === 'pending' && <PermissionActions
