@@ -14,6 +14,7 @@ export function initialDesktopClientSettings(search = '') {
     autoHideSeconds: desktopAutoHideSeconds(search),
     wakeWordEnabled: desktopWakeWordEnabled(search),
     pushToTalkKey: params.get('pushToTalkKey') ?? 'F9',
+    pushToTalkGlobal: params.get('pushToTalkGlobal') === 'true',
     language: params.get('lang') || '',
   }
 }
@@ -32,6 +33,9 @@ export function applyDesktopClientSettings(current, update = {}) {
     pushToTalkKey: typeof update.pushToTalkKey === 'string'
       ? update.pushToTalkKey
       : current.pushToTalkKey,
+    pushToTalkGlobal: typeof update.pushToTalkGlobal === 'boolean'
+      ? update.pushToTalkGlobal
+      : current.pushToTalkGlobal,
     language: update.language || current.language,
   }
 }

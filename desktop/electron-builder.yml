@@ -6,6 +6,8 @@ npmRebuild: false
 asarUnpack:
   - desktop/src/transcribe-audio-file.py
   - node_modules/sherpa-onnx/**/*.wasm
+  # native keyboard hook for system-wide push-to-talk (.node prebuilds can't load from asar)
+  - node_modules/uiohook-napi/**/*
   # open-computer-use is spawned by external backend Agent processes (plain
   # node + native runtimes), which cannot read files inside the asar archive.
   - node_modules/@qwen-code/open-computer-use/**/*

@@ -14,6 +14,7 @@ test('desktop client settings initialize from the desktop URL', () => {
     autoHideSeconds: 300,
     wakeWordEnabled: true,
     pushToTalkKey: 'F8',
+    pushToTalkGlobal: false,
     language: 'en',
   })
 })
@@ -24,6 +25,7 @@ test('desktop client settings hot-apply without replacing unrelated state', () =
     autoHideSeconds: 60,
     wakeWordEnabled: false,
     pushToTalkKey: 'F9',
+    pushToTalkGlobal: false,
     language: 'zh-CN',
   }
 
@@ -36,6 +38,7 @@ test('desktop client settings hot-apply without replacing unrelated state', () =
     autoHideSeconds: 120,
     wakeWordEnabled: false,
     pushToTalkKey: 'F9',
+    pushToTalkGlobal: false,
     language: 'en',
   })
 })

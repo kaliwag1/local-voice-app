@@ -70,6 +70,8 @@ const ENGLISH = {
   '关闭按住说话': 'Turn push to talk off',
   '聊天窗口获得焦点时，按住此键说话，松开即停止': 'While the chat window is focused, hold this key to talk and release to stop',
   '关闭': 'Off',
+  '在任何应用中按住此键说话，松开即停止': 'Hold this key in any app to talk; release to stop',
+  '系统级按键钩子未安装（desktop 目录运行 npm install uiohook-napi 后重建），目前仅在聊天窗口获得焦点时有效': 'System-wide key hook not installed (run npm install uiohook-napi in desktop/, then rebuild) — works only while the chat window is focused for now',
   '点击后按下新的快捷键': 'Click, then press a new shortcut',
   '恢复默认快捷键': 'Restore default shortcut',
   '语言': 'Language',

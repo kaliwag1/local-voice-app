@@ -188,6 +188,14 @@ async function restoreWakeShortcutRegistration() {
   }
 }
 
+function renderPttHint(globalHook) {
+  const hint = document.getElementById('ptt-hint')
+  if (!hint) return
+  hint.textContent = globalHook
+    ? t('在任何应用中按住此键说话，松开即停止')
+    : t('系统级按键钩子未安装（desktop 目录运行 npm install uiohook-napi 后重建），目前仅在聊天窗口获得焦点时有效')
+}
+
 function renderPttKey() {
   recordPttKey.textContent = recordingPttKey
     ? t('请按快捷键…')
@@ -1206,6 +1214,7 @@ form.addEventListener('submit', async event => {
     settings = result.settings
     runtime = result.runtime
     renderWakeShortcutStatus(result.wakeShortcutRegistered)
+    renderPttHint(result.pushToTalkGlobal)
     render()
     if (!runtime.gatewayConnected) {
       showMessage(t('配置已保存，Gateway 正在启动…'), 'notice')
@@ -1240,6 +1249,7 @@ window.qwenAudioAgentDesktop.loadSettings().then(value => {
   skins = value.skins || []
   runtime = value.runtime
   renderWakeShortcutStatus(value.wakeShortcutRegistered)
+  renderPttHint(value.pushToTalkGlobal)
   render()
   void detectBackendOptions()
   if (value.runtimeError) {

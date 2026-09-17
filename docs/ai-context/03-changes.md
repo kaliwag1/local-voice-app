@@ -21,6 +21,16 @@ Each entry: what, why, where. Keep this in sync with commits on `jake/local-voic
   was already on the key does nothing. **Renderer-side, so only while the panel is focused**
   (Electron's globalShortcut has no key-up event; a global *toggle* would be the follow-up).
   Status pill tooltip shows "Hold F9 to talk". Tests: `web/test/push-to-talk.test.mjs`.
+- **System-wide hold-to-talk** (later the same day): `desktop/src/push-to-talk-hook.mjs` wraps
+  the optional native module **uiohook-napi** (N-API keyboard hook with key-up events; Electron's
+  `globalShortcut` has none). Main process → IPC `qwen-audio-agent:push-to-talk` `{held}` →
+  `preload.onPushToTalk` → `App.jsx` opens/closes the mic; hidden orb is woken first. Whether
+  the hook is active travels as `pushToTalkGlobal` (orb URL, `client-settings`, runtime status);
+  when it is false the renderer's focused-window fallback is used and Settings says so in the
+  hint. Dependency added to `desktop/package.json` + `asarUnpack` in `electron-builder.yml`.
+  **Install on Windows** with `realtime-voice-chat\Install Push To Talk Hook.cmd` (npm install
+  can't be done from the Linux VM — it would fetch linux prebuilds), then rebuild. Tests:
+  `desktop/test/push-to-talk-hook.test.mjs`.
 - Settings tab row is 5 columns; skin names English ("Fluid orb", "Liquid gradient orb");
   "Show in Explorer"; wake-word hint gives the pinyin and says the KWS model is Chinese-only.
 

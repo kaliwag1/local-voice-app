@@ -207,6 +207,7 @@ export default function App() {
     autoHideSeconds,
     wakeWordEnabled,
     pushToTalkKey,
+    pushToTalkGlobal,
   } = desktopClientSettings
   // `t()` reads the module-level runtime language. Keeping a revision in
   // React state makes a language-only settings update repaint this surface
@@ -1328,8 +1329,33 @@ export default function App() {
   const pushToTalkOpenedMic = useRef(false)
   const voiceControlsRef = useRef({ enableVoice, disableVoice, voiceEnabled })
   voiceControlsRef.current = { enableVoice, disableVoice, voiceEnabled }
+  // System-wide hook (main process, uiohook-napi): it tells us held/released directly.
   useEffect(() => {
-    if (!desktopOrbMode || !pushToTalkKey) return undefined
+    if (!desktopOrbMode || !pushToTalkKey || !pushToTalkGlobal) return undefined
+    const subscribe = window.qwenAudioAgentDesktop?.onPushToTalk
+    if (typeof subscribe !== 'function') return undefined
+    return subscribe(held => {
+      if (held) {
+        if (pushToTalkHeld.current) return
+        pushToTalkHeld.current = true
+        if (!voiceControlsRef.current.voiceEnabled) {
+          pushToTalkOpenedMic.current = true
+          voiceControlsRef.current.enableVoice()
+        }
+        return
+      }
+      if (!pushToTalkHeld.current) return
+      pushToTalkHeld.current = false
+      if (pushToTalkOpenedMic.current) {
+        pushToTalkOpenedMic.current = false
+        voiceControlsRef.current.disableVoice()
+      }
+    })
+  }, [desktopOrbMode, pushToTalkKey, pushToTalkGlobal])
+
+  // In-window fallback when the native hook isn't installed: only while the panel is focused.
+  useEffect(() => {
+    if (!desktopOrbMode || !pushToTalkKey || pushToTalkGlobal) return undefined
     const release = () => {
       if (!pushToTalkHeld.current) return
       pushToTalkHeld.current = false
@@ -1362,9 +1388,9 @@ export default function App() {
       window.removeEventListener('blur', release)
       release()
     }
-  }, [desktopOrbMode, pushToTalkKey])
+  }, [desktopOrbMode, pushToTalkKey, pushToTalkGlobal])
   const pushToTalkHint = desktopOrbMode && pushToTalkKey
-    ? `Hold ${acceleratorLabel(pushToTalkKey, navigator.platform)} to talk`
+    ? `Hold ${acceleratorLabel(pushToTalkKey, navigator.platform)} to talk${pushToTalkGlobal ? ' (works from any app)' : ' (chat window focused)'}`
     : ''
 
   // Settings floats over the panel as its own window; the panel blurs itself underneath

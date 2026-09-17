@@ -96,6 +96,7 @@ import {
 } from './updater.mjs'
 import { createGracefulShutdown } from './graceful-shutdown.mjs'
 import { DesktopPresence } from './desktop-presence.mjs'
+import { createPushToTalkHook } from './push-to-talk-hook.mjs'
 import { createElectronGatewayCredentialStore } from './gateway-credential-store.mjs'
 import { createLocalModelSwitcher } from './local-model-switch.mjs'
 import { transcribeAudioFile } from './local-audio-transcription.mjs'
@@ -282,6 +283,25 @@ const desktopWakeWord = new DesktopWakeWordRuntime({
   onError: error => logger.warn('wake_word.failed', { error }),
 })
 desktopWakeWord.setEnabled(desktopWakeWordEnabled)
+
+// System-wide hold-to-talk (uiohook-napi). Holding the key from any app opens the mic;
+// if the orb is asleep/hidden it is woken first so the listening state is visible.
+const pushToTalkHook = createPushToTalkHook({
+  logger,
+  onChange: held => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    if (held && desktopPresence.state === 'hidden') desktopPresence.wake('push-to-talk')
+    mainWindow.webContents.send('qwen-audio-agent:push-to-talk', { held })
+  },
+})
+let pushToTalkGlobal = false
+async function applyPushToTalkKey(accelerator) {
+  pushToTalkGlobal = await pushToTalkHook.setAccelerator(accelerator)
+  if (accelerator && !pushToTalkGlobal) {
+    logger.warn('push_to_talk.global_unavailable', { accelerator, hint: 'npm install uiohook-napi in desktop/ (Windows), then rebuild' })
+  }
+  return pushToTalkGlobal
+}
 
 ipcMain.on('qwen-audio-agent:wake-word-audio', (event, payload) => {
   if (
@@ -567,6 +587,7 @@ async function loadQwenAudioAgent(window) {
       autoHideSeconds: settings.autoHideSeconds,
       wakeWordEnabled: settings.wakeWordEnabled,
       pushToTalkKey: settings.pushToTalkKey,
+      pushToTalkGlobal,
       language: effectiveDesktopLanguage(settings.language, app.getLocale()),
       surfaceMode: desktopSurfaceMode,
       sessionId: desktopConversationSessionId,
@@ -585,6 +606,7 @@ function sendDesktopClientSettings(window, settings) {
     autoHideSeconds: settings.autoHideSeconds,
     wakeWordEnabled: settings.wakeWordEnabled,
     pushToTalkKey: settings.pushToTalkKey ?? '',
+    pushToTalkGlobal,
     language: effectiveDesktopLanguage(settings.language, app.getLocale()),
   })
 }
@@ -1264,6 +1286,7 @@ ipcMain.handle('qwen-audio-agent:settings-load', async event => {
     firstRun: !configExistedAtLaunch,
     runtimeError: lastRuntimeError || null,
     wakeShortcutRegistered: desktopPresence.shortcutRegistered,
+    pushToTalkGlobal,
     restartRequired: false,
   }
 })
@@ -1580,6 +1603,7 @@ async function applyDesktopSettings(settings) {
   desktopLanguage = normalized.language
   desktopWakeWordEnabled = normalized.wakeWordEnabled
   desktopWakeWord.setEnabled(desktopWakeWordEnabled)
+  if (previous.pushToTalkKey !== normalized.pushToTalkKey) await applyPushToTalkKey(normalized.pushToTalkKey)
   createTray()
   if (settingsWindow && !settingsWindow.isDestroyed()) {
     settingsWindow.setTitle(desktopText('设置'))
@@ -1656,6 +1680,7 @@ async function applyDesktopSettings(settings) {
     restartRequired: false,
     runtime,
     wakeShortcutRegistered: desktopPresence.shortcutRegistered,
+    pushToTalkGlobal,
   }
 }
 
@@ -1774,6 +1799,7 @@ if (!app.requestSingleInstanceLock()) {
     screen.on('display-added', refreshDesktopTaskSurface)
     screen.on('display-removed', refreshDesktopTaskSurface)
     screen.on('display-metrics-changed', refreshDesktopTaskSurface)
+    await applyPushToTalkKey(initialSettings.pushToTalkKey)
     if (!desktopPresence.registerShortcut(initialSettings.wakeShortcut)) {
       logger.warn('desktop.wake_shortcut_unavailable', {
         accelerator: initialSettings.wakeShortcut,
@@ -1836,6 +1862,7 @@ if (!app.requestSingleInstanceLock()) {
       logger.info('desktop.stopping')
       desktopPresence.destroy()
       desktopWakeWord.stop()
+      pushToTalkHook.stop()
       tray?.destroy()
       tray = null
       const server = rendererServer

@@ -59,6 +59,12 @@ contextBridge.exposeInMainWorld('qwenAudioAgentDesktop', {
     'qwen-audio-agent:local-voice-set',
     voice,
   ),
+  onPushToTalk: callback => {
+    if (typeof callback !== 'function') return () => {}
+    const listener = (_event, payload) => callback(Boolean(payload?.held))
+    ipcRenderer.on('qwen-audio-agent:push-to-talk', listener)
+    return () => ipcRenderer.removeListener('qwen-audio-agent:push-to-talk', listener)
+  },
   onSettingsOverlay: callback => {
     if (typeof callback !== 'function') return () => {}
     const listener = (_event, payload) => callback(Boolean(payload?.open))
