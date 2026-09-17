@@ -1957,8 +1957,8 @@ export default function App() {
         <button
           className="ghost window-control"
           onClick={() => void window.qwenAudioAgentDesktop?.panelWindowControl?.('minimize')}
-          title="Minimise"
-          aria-label="Minimise"
+          title="Minimise to the floating orb"
+          aria-label="Minimise to the floating orb"
         ><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5.5h8" /></svg></button>
         <button
           className="ghost window-control"
@@ -1971,9 +1971,9 @@ export default function App() {
           : <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 1.5h7v7h-7z" /></svg>}</button>
         <button
           className="ghost window-control window-control-close"
-          onClick={() => void changeDesktopSurface('orb')}
-          title="Close to the floating orb (quit from the tray icon)"
-          aria-label="Close to the floating orb"
+          onClick={() => void window.qwenAudioAgentDesktop?.panelWindowControl?.('close')}
+          title="Close to the tray (Show floating orb from the tray icon, or the shortcut, brings it back)"
+          aria-label="Close to the tray"
         ><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" /></svg></button>
       </div>}
     </header>

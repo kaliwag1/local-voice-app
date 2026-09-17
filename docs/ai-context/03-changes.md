@@ -2,6 +2,14 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-17 — orb semantics (Claude, after Jake's live check)
+- Root cause of "orb doesn't show": not a window-state bug. `config.env` has
+  `QWEN_AUDIO_OPEN_CONVERSATION_ON_START=1` so the app opens in **panel** mode, and the tray item only
+  woke the window in its current shape. Now: tray **Show floating orb** → `collapseToOrb()` (forces orb
+  mode + `surface-reset` IPC to the renderer); panel **minimise** button → collapse to orb (not the
+  taskbar); panel **✕** → collapse to orb then `desktopPresence.hide()` (back via tray/shortcut).
+  `panel-window-control` actions: `minimize`, `maximize`, `close`.
+
 ## 2026-09-17 — lost orb fix + "Reset floating orb" (Claude)
 - Jake: orb no longer appeared, even from the tray. Log showed no errors. Likely chain: panel
   **minimise** button → window minimised → inactivity collapse/hide to orb (skipTaskbar) →

@@ -625,7 +625,8 @@ function createTray() {
   tray.setContextMenu(Menu.buildFromTemplate([
     {
       label: desktopText('显示悬浮球'),
-      click: () => showDesktop('tray'),
+      // "Show floating orb" means the orb, not whatever the window last was.
+      click: () => { showDesktop('tray'); collapseToOrb() },
     },
     {
       label: 'Reset floating orb',
@@ -871,6 +872,17 @@ function setDesktopSurfaceMode(requestedMode) {
   return desktopSurfaceMode
 }
 
+// Collapse the chat panel to the orb from the main process (tray item,
+// minimise button). The renderer normally drives surface changes itself, so
+// tell it what happened.
+function collapseToOrb() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (desktopSurfaceMode === 'panel') setDesktopSurfaceMode('orb')
+  if (mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+    mainWindow.webContents.send('qwen-audio-agent:surface-reset', { mode: 'orb' })
+  }
+}
+
 // Safety net for a lost orb (off-screen after a display change, or stuck in
 // an odd window state): put it back at the default spot on the primary
 // display, unminimised, in orb mode, visible.
@@ -965,9 +977,18 @@ ipcMain.handle('qwen-audio-agent:panel-resize-start', (event, request) => {
 ipcMain.handle('qwen-audio-agent:panel-window-control', (event, action) => {
   if (!mainWindow || event.sender !== mainWindow.webContents || desktopSurfaceMode !== 'panel') return { ok: false }
   if (action === 'minimize') {
-    mainWindow.minimize()
-    logger.info('desktop.panel_minimized')
-    return { ok: true }
+    // The orb is this app's minimised form; the taskbar is not.
+    collapseToOrb()
+    logger.info('desktop.panel_minimized', { to: 'orb' })
+    return { ok: true, mode: 'orb' }
+  }
+  if (action === 'close') {
+    // Close = out of the way entirely: orb shape, then hidden. The tray item
+    // or the global shortcut brings the orb back.
+    collapseToOrb()
+    desktopPresence.hide('requested')
+    logger.info('desktop.panel_closed', { to: 'hidden' })
+    return { ok: true, mode: 'orb', hidden: true }
   }
   if (action === 'maximize') {
     const bounds = mainWindow.getBounds()
