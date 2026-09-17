@@ -60,7 +60,7 @@ export function createDesktopUpdater({
     state: () => state,
     check: async () => {
       if (!enabled) {
-        transition({ phase: 'error', message: '当前环境不支持自动更新' })
+        transition({ phase: 'error', message: '自定义构建版本，自动更新已关闭' })
         return state
       }
       transition({ phase: 'checking', message: '' })

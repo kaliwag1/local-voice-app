@@ -40,6 +40,8 @@ export default function MultimodalComposer({
   voiceInputEnabled = false,
   connectionState = 'connected',
   compact = false,
+  busy = false,
+  onStop = null,
 }) {
   const [text, setText] = useState('')
   const [attachments, setAttachments] = useState([])
@@ -147,6 +149,13 @@ export default function MultimodalComposer({
           if (event.key === 'Enter' && !event.shiftKey) submit(event)
         }}
       />
+      {busy && typeof onStop === 'function' && <button
+        className="composer-stop"
+        type="button"
+        onClick={() => { void onStop() }}
+        title="Stop the current reply and any running task"
+        aria-label="Stop"
+      ><span className="composer-stop-icon" aria-hidden="true" /> Stop</button>}
       <button className="composer-send" type="submit">{t('发送')}</button>
     </div>
     {error && <small className="composer-error" role="alert">{error}</small>}

@@ -51,7 +51,7 @@ test('disabled environments fail with a friendly message', async () => {
   })
   const state = await updater.check()
   assert.equal(state.phase, 'error')
-  assert.equal(state.message, '当前环境不支持自动更新')
+  assert.equal(state.message, '自定义构建版本，自动更新已关闭')
   assert.deepEqual(impl.calls, [])
 })
 

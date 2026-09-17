@@ -20,6 +20,7 @@ import PermissionActions from './PermissionActions.jsx'
 import DesktopFluidOrb from './desktop/DesktopFluidOrb.jsx'
 import DesktopSpriteOrb from './desktop/DesktopSpriteOrb.jsx'
 import KnowledgeLibraryPanel from './KnowledgeLibraryPanel.jsx'
+import AudioTranscriber from './AudioTranscriber.jsx'
 import {
   desktopOrbClassName,
   resolveOrbVisualState,
@@ -202,6 +203,14 @@ export default function App() {
   // without replacing its Gateway WebSocket or Realtime Session.
   const [, setLanguageRevision] = useState(0)
   const [sessionId, setSessionId] = useState(getSessionId)
+  const [sessions, setSessions] = useState([])
+  const [showArchivedChats, setShowArchivedChats] = useState(false)
+  const [chatsOpen, setChatsOpen] = useState(true)
+  const [showAudioTranscriber, setShowAudioTranscriber] = useState(false)
+  const [localModels, setLocalModels] = useState([])
+  const [localModelKey, setLocalModelKey] = useState('')
+  const [localModelError, setLocalModelError] = useState('')
+  const [localModelSwitching, setLocalModelSwitching] = useState(false)
   const [voiceEnabled, setVoiceEnabled] = useState(() => initialVoiceEnabled({
     desktopOrbMode,
     clientType: activeClientType,
@@ -255,6 +264,54 @@ export default function App() {
   const sessionIdRef = useRef(sessionId)
   sessionIdRef.current = sessionId
   const spriteAnimationCue = spriteAnimationCues[0] || null
+
+  const refreshSessions = useCallback(async () => {
+    if (!desktopOrbMode) return
+    try {
+      const response = await gatewayFetch('api/conversations', { cache: 'no-store' })
+      if (!response.ok) return
+      const payload = await response.json()
+      setSessions(Array.isArray(payload.sessions) ? payload.sessions : [])
+    } catch {
+      // The current chat remains usable while the Gateway reconnects.
+    }
+  }, [])
+
+  const refreshLocalModels = useCallback(async () => {
+    const list = window.qwenAudioAgentDesktop?.listLocalModels
+    if (!desktopOrbMode || typeof list !== 'function') return
+    try {
+      const result = await list()
+      if (!result?.ok) {
+        setLocalModelError(result?.error || 'Local models are unavailable.')
+        return
+      }
+      setLocalModels(result.models || [])
+      setLocalModelKey(result.selectedModelKey || '')
+      setLocalModelError('')
+    } catch (error) {
+      setLocalModelError(error.message || 'Local models are unavailable.')
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshLocalModels()
+  }, [refreshLocalModels])
+
+  useEffect(() => {
+    if (!desktopOrbMode) return undefined
+    void refreshSessions()
+    const timer = setInterval(refreshSessions, 30_000)
+    return () => clearInterval(timer)
+  }, [refreshSessions])
+
+  useEffect(() => {
+    if (!desktopOrbMode || !messages.some(message => (
+      message.role === 'user' && !message.live
+    ))) return undefined
+    const timer = setTimeout(refreshSessions, 800)
+    return () => clearTimeout(timer)
+  }, [messages, refreshSessions])
 
   useEffect(() => {
     if (!desktopOrbMode) return undefined
@@ -478,6 +535,7 @@ export default function App() {
   }, [])
 
   const onRealtimeEvent = useCallback(event => {
+    if (sessionIdRef.current !== sessionId) return
     const animationEvent = spriteAnimationEventForGatewayEvent(event)
     if (animationEvent) {
       triggerSpriteAnimation(animationEvent)
@@ -840,6 +898,32 @@ export default function App() {
     },
   })
   gatewayCommandsRef.current = voice
+
+  useEffect(() => {
+    if (!desktopOrbMode) return undefined
+    let cancelled = false
+    Promise.all([
+      gatewayFetch(`api/conversations/${encodeURIComponent(sessionId)}/messages`, {
+        cache: 'no-store',
+      }).then(response => response.ok ? response.json() : { messages: [] }),
+      gatewayFetch(`api/tasks?sessionId=${encodeURIComponent(sessionId)}`, {
+        cache: 'no-store',
+      }).then(response => response.ok ? response.json() : { tasks: [] }),
+    ]).then(([history, taskResult]) => {
+      if (cancelled) return
+      setMessages(items => mergeConversationHistory(items, history.messages || []))
+      setAgentTasks(items => {
+        const known = new Set(items.map(task => task.id))
+        return [
+          ...items,
+          ...(taskResult.tasks || [])
+            .filter(task => taskNeedsPresentation(task) && !known.has(task.id))
+            .map(task => taskView(task)),
+        ]
+      })
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [sessionId])
   const lifecycleTransition = (
     desktopOrbMode && desktopLifecycle !== 'active'
   )
@@ -1046,11 +1130,13 @@ export default function App() {
     .replace(/\s+Realtime\b/gi, '')
     .trim()
 
-  const resetSession = () => {
+  const switchSession = next => {
+    setShowAudioTranscriber(false)
+    if (!next || next === sessionIdRef.current) return
     taskDismissTimers.current.forEach(timer => clearTimeout(timer))
     taskDismissTimers.current.clear()
-    const next = crypto.randomUUID()
     localStorage.setItem('qwen-audio-agent.session', next)
+    sessionIdRef.current = next
     setSessionId(next)
     setMessages([])
     setAgentTasks([])
@@ -1058,7 +1144,66 @@ export default function App() {
     activeVoiceResponse.current = ''
     responseTurnMap.current.clear()
     agentTurnIds.current.clear()
-    setActivity(t('已创建新会话'))
+    setActivity(t('待命'))
+  }
+
+  const resetSession = async () => {
+    if (!desktopOrbMode) {
+      switchSession(crypto.randomUUID())
+      return
+    }
+    try {
+      const response = await gatewayFetch('api/conversations', { method: 'POST' })
+      if (!response.ok) throw new Error('create failed')
+      const { sessionId: next } = await response.json()
+      switchSession(next)
+      void refreshSessions()
+      setActivity(t('已创建新会话'))
+    } catch {
+      setActivity('Could not create a chat. Please try again.')
+    }
+  }
+
+  const setSessionArchived = async (target, archived) => {
+    try {
+      const response = await gatewayFetch(`api/conversations/${encodeURIComponent(target)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived }),
+      })
+      if (!response.ok) throw new Error('archive failed')
+      setSessions(current => current.map(item => (
+        item.sessionId === target ? { ...item, archived } : item
+      )))
+      setActivity(archived ? 'Chat archived.' : 'Chat restored.')
+    } catch {
+      setActivity('Could not update that chat. Please try again.')
+    }
+  }
+
+  const deleteSession = async target => {
+    const item = sessions.find(entry => entry.sessionId === target)
+    const label = item?.title ? `"${item.title}"` : 'this chat'
+    if (!window.confirm(`Delete ${label}? This permanently removes its messages and cannot be undone.`)) return
+    try {
+      const response = await gatewayFetch(`api/conversations/${encodeURIComponent(target)}`, {
+        method: 'DELETE',
+      })
+      if (response.status === 409) {
+        const payload = await response.json().catch(() => ({}))
+        setActivity(payload.error || 'That chat still has a task running.')
+        return
+      }
+      if (!response.ok && response.status !== 404) throw new Error('delete failed')
+      setSessions(current => current.filter(entry => entry.sessionId !== target))
+      if (target === sessionIdRef.current) {
+        // The open chat is gone; move to a fresh one rather than an empty ghost.
+        await resetSession()
+      }
+      setActivity('Chat deleted.')
+    } catch {
+      setActivity('Could not delete that chat. Please try again.')
+    }
   }
 
   const enableVoice = () => {
@@ -1075,6 +1220,62 @@ export default function App() {
   const disableVoice = () => {
     setWaitingForVoice(false)
     setVoiceEnabled(false)
+    setActivity(t('待命'))
+  }
+
+  const changeLocalModel = async modelKey => {
+    if (!modelKey || modelKey === localModelKey || localModelSwitching) return
+    const switchModel = window.qwenAudioAgentDesktop?.switchLocalModel
+    if (typeof switchModel !== 'function') return
+    disableVoice()
+    setLocalModelError('')
+    setLocalModelSwitching(true)
+    setActivity('Switching local model…')
+    try {
+      const result = await switchModel(modelKey)
+      if (!result?.ok) {
+        setLocalModelError(result?.error || 'Could not switch models.')
+        setActivity('Model switch failed')
+      } else {
+        setLocalModelKey(result.selectedModelKey || modelKey)
+        setActivity('Local model changed')
+      }
+    } catch (error) {
+      setLocalModelError(error.message || 'Could not switch models.')
+      setActivity('Model switch failed')
+    } finally {
+      setLocalModelSwitching(false)
+    }
+  }
+
+  // One Stop control for everything in flight in this chat: the spoken/streamed
+  // reply and any backend work. Scheduled (future) tasks keep their own cancel
+  // on the task card and are deliberately left alone here.
+  const ACTIVE_TASK_PHASES = ['queued', 'delegated', 'running', 'responding']
+  const activeTasks = agentTasks.filter(task => ACTIVE_TASK_PHASES.includes(task.phase))
+  const replyInFlight = voice.state === 'speaking'
+    || messages.some(message => message.role !== 'user' && message.live)
+  const somethingInFlight = replyInFlight || activeTasks.length > 0
+  const stopEverything = async () => {
+    if (replyInFlight) voice.interrupt()
+    if (!activeTasks.length) return
+    setAgentTasks(items => items.map(task => (
+      ACTIVE_TASK_PHASES.includes(task.phase) ? { ...task, phase: 'cancelling' } : task
+    )))
+    const outcomes = await Promise.allSettled(activeTasks.map(task => (
+      gatewayFetch(`api/tasks/${encodeURIComponent(task.id)}`, { method: 'DELETE' })
+    )))
+    const failed = outcomes.filter(outcome => (
+      outcome.status === 'rejected'
+      || !(outcome.value.ok || [404, 409].includes(outcome.value.status))
+    ))
+    if (failed.length) {
+      setActivity('Could not stop everything. Please try again.')
+      setAgentTasks(items => items.map(task => (
+        task.phase === 'cancelling' ? { ...task, phase: 'running' } : task
+      )))
+      return
+    }
     setActivity(t('待命'))
   }
 
@@ -1339,8 +1540,50 @@ export default function App() {
     {message.interrupted && <small className="interrupted">{t('已打断')}</small>}
   </article>
 
+  const knownSessions = sessions.some(item => item.sessionId === sessionId)
+    ? sessions
+    : [{ sessionId, title: 'New chat', updatedAt: '' }, ...sessions]
+  // The open chat always stays in the main list, even if it was archived.
+  const visibleSessions = knownSessions.filter(item => !item.archived || item.sessionId === sessionId)
+  const archivedSessions = knownSessions.filter(item => item.archived && item.sessionId !== sessionId)
+  const formatChatDate = value => new Intl.DateTimeFormat(undefined, {
+    month: 'short', day: 'numeric',
+  }).format(new Date(value))
+  const renderChatItem = item => <div
+    key={item.sessionId}
+    className={`chat-item${item.sessionId === sessionId ? ' active' : ''}${item.archived ? ' archived' : ''}`}
+  >
+    <button
+      type="button"
+      className="chat-item-main"
+      onClick={() => switchSession(item.sessionId)}
+      aria-current={item.sessionId === sessionId ? 'page' : undefined}
+      title={item.title}
+    >
+      <span>{item.title || 'New chat'}</span>
+      {item.updatedAt && <small>{formatChatDate(item.updatedAt)}</small>}
+    </button>
+    <div className="chat-item-actions">
+      <button
+        type="button"
+        onClick={() => setSessionArchived(item.sessionId, !item.archived)}
+        title={item.archived ? 'Restore chat' : 'Archive chat'}
+        aria-label={item.archived ? 'Restore chat' : 'Archive chat'}
+      >{item.archived ? '↩' : '▣'}</button>
+      <button
+        type="button"
+        className="danger"
+        onClick={() => deleteSession(item.sessionId)}
+        title="Delete chat"
+        aria-label="Delete chat"
+      >✕</button>
+    </div>
+  </div>
+
   return <main className={`app${
     desktopOrbMode ? ' desktop-conversation-panel' : ''
+  }${
+    desktopOrbMode && chatsOpen ? ' with-chat-sidebar' : ''
   }`}>
     <header>
       <div className="brand"><span>V</span><div>qwen-audio-agent<small>REALTIME VOICE · LIVE</small></div></div>
@@ -1366,6 +1609,13 @@ export default function App() {
       <div className="status">
         <i className={orbVisualState} /><span>{labelFor(orbVisualState)}</span>
       </div>
+      {desktopOrbMode && <button
+        className="ghost desktop-chat-toggle"
+        onClick={() => setChatsOpen(value => !value)}
+        aria-label={chatsOpen ? 'Hide chats' : 'Show chats'}
+        aria-expanded={chatsOpen}
+        title={chatsOpen ? 'Hide chats' : 'Show chats'}
+      ><OrbControlIcon type="conversation" /></button>}
       {/* 资料库入口只在 web 模式给：桌面悬浮球的 header 已经紧到把「新会话」
           压成一个「＋」，再塞一个文字按钮会挤掉语音按钮 */}
       {!desktopOrbMode && (
@@ -1420,7 +1670,51 @@ export default function App() {
       </button>}
     </header>
 
-    <section className="workspace">
+    {desktopOrbMode && chatsOpen && <aside className="chat-sidebar" aria-label="Chats">
+      <div className="chat-sidebar-heading">
+        <strong>Chats</strong>
+        <button onClick={resetSession} title="New chat" aria-label="New chat">＋</button>
+      </div>
+      <nav className="chat-list" aria-label="Saved chats">
+        {visibleSessions.map(renderChatItem)}
+        {archivedSessions.length > 0 && <button
+          type="button"
+          className="chat-archived-toggle"
+          onClick={() => setShowArchivedChats(open => !open)}
+          aria-expanded={showArchivedChats}
+        >{showArchivedChats ? '▾' : '▸'} Archived ({archivedSessions.length})</button>}
+        {showArchivedChats && archivedSessions.map(renderChatItem)}
+      </nav>
+      <button
+        type="button"
+        className={`audio-transcriber-nav${showAudioTranscriber ? ' active' : ''}`}
+        onClick={() => {
+          disableVoice()
+          setShowAudioTranscriber(true)
+        }}
+      >Transcribe audio</button>
+      <div className="local-model-picker">
+        <div className="local-model-picker-heading">
+          <label htmlFor="local-model-select">Local model</label>
+          <button type="button" onClick={() => void refreshLocalModels()} title="Refresh downloaded models">↻</button>
+        </div>
+        <select
+          id="local-model-select"
+          value={localModelKey}
+          disabled={localModelSwitching || localModels.length === 0}
+          onChange={event => void changeLocalModel(event.target.value)}
+        >
+          {localModels.length === 0 && <option value="">Unavailable</option>}
+          {localModels.map(model => <option key={model.modelKey} value={model.modelKey}>
+            {model.displayName}
+          </option>)}
+        </select>
+        {localModelSwitching && <small>Switching…</small>}
+        {localModelError && <small role="alert">{localModelError}</small>}
+      </div>
+    </aside>}
+
+    <section className={`workspace${showAudioTranscriber ? ' show-audio-transcriber' : ''}`}>
       {showKnowledgeLibrary && <KnowledgeLibraryPanel
         onClose={() => setShowKnowledgeLibrary(false)}
         getTask={voice.getTask}
@@ -1474,7 +1768,11 @@ export default function App() {
         voiceInputEnabled={voice.inputReady}
         connectionState={voice.connectionState}
         compact={desktopOrbMode}
+        busy={somethingInFlight}
+        onStop={stopEverything}
       />}
+
+      {desktopOrbMode && showAudioTranscriber && <AudioTranscriber />}
 
     </section>
   </main>

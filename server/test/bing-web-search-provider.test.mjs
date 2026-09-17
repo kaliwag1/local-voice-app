@@ -91,3 +91,23 @@ test('tolerates invalid numeric entities in untrusted result markup', () => {
   )
   assert.equal(parseBingHtmlResults(html)[0].title, 'First \ufffd & current')
 })
+
+test('search market is configurable and defaults to the upstream zh-CN', async () => {
+  const { resolveBingMarket } = await import('../src/frontend/retrieval/providers/bing.mjs')
+  assert.equal(resolveBingMarket(undefined), 'zh-CN')
+  assert.equal(resolveBingMarket('en-GB'), 'en-GB')
+  assert.equal(resolveBingMarket('nonsense value'), 'zh-CN')
+
+  const requested = []
+  const fetchImpl = async url => {
+    requested.push(new URL(url))
+    return {
+      ok: true, status: 200, headers: { get: () => null },
+      text: async () => '<li class="b_algo"><h2><a href="https://example.co.uk/a">Result</a></h2><div class="b_caption"><p>Snippet</p></div></li>',
+    }
+  }
+  const provider = new BingWebSearchProvider({ fetchImpl, env: { QWEN_AUDIO_WEB_SEARCH_MARKET: 'en-GB' } })
+  await provider.search('weather in Portsmouth')
+  assert.equal(requested[0].searchParams.get('mkt'), 'en-GB')
+  assert.equal(requested[0].searchParams.get('setlang'), 'en')
+})

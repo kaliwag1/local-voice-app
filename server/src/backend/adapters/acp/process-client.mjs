@@ -192,6 +192,10 @@ export class AcpProcessClient {
         stdio: ['pipe', 'pipe', 'pipe'],
         shell: useShell,
         detached: !isWindows,
+        // Electron in ELECTRON_RUN_AS_NODE mode allocates a console on
+        // Windows; without this the desktop app pops an empty terminal tab
+        // for the ACP bridge that stays open as long as the backend runs.
+        windowsHide: true,
       })
     const processLogger = logger.child({ subsystem: 'acp', backend: this.label })
     processLogger.info('acp.process_started', {

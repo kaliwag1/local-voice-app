@@ -3,11 +3,12 @@ import assert from 'node:assert/strict'
 import {
   builtinMcpServers,
   computerUseMcpServer,
+  computerUseRuntime,
   createBuiltinMcpLifecycle,
 } from '../src/backend/adapters/acp/builtin-mcp.mjs'
 
 test('computer-use MCP server resolves as stdio descriptor by default', () => {
-  const descriptor = computerUseMcpServer({})
+  const descriptor = computerUseMcpServer({}, { platform: 'linux' })
   assert.ok(descriptor, 'expected descriptor when package is installed')
   assert.equal(descriptor.name, 'open-computer-use')
   assert.equal(descriptor.type, 'stdio')
@@ -125,4 +126,31 @@ test('builtin MCP lifecycle is a no-op off macOS or without the managed server',
     platform: 'darwin',
   }).close()
   assert.equal(listed, false)
+})
+
+test('on Windows the computer-use server prefers a real node binary over Electron-as-Node', () => {
+  const found = computerUseRuntime({
+    platform: 'win32', env: {}, execPath: 'C:\\app\\Qwen Audio Agent.exe',
+    find: name => (name === 'node' ? 'C:\\Program Files\\nodejs\\node.exe' : ''),
+  })
+  assert.deepEqual(found, { command: 'C:\\Program Files\\nodejs\\node.exe', env: [] })
+
+  const explicit = computerUseRuntime({
+    platform: 'win32', env: { QWEN_AUDIO_AGENT_NODE_BIN: 'D:\\node\\node.exe' },
+    execPath: 'C:\\app\\Qwen Audio Agent.exe', find: () => '',
+  })
+  assert.equal(explicit.command, 'D:\\node\\node.exe')
+
+  const fallback = computerUseRuntime({
+    platform: 'win32', env: {}, execPath: 'C:\\app\\Qwen Audio Agent.exe', find: () => '',
+  })
+  assert.deepEqual(fallback, {
+    command: 'C:\\app\\Qwen Audio Agent.exe',
+    env: [{ name: 'ELECTRON_RUN_AS_NODE', value: '1' }],
+  })
+
+  const other = computerUseRuntime({
+    platform: 'darwin', env: {}, execPath: '/app/electron', find: () => '/usr/bin/node',
+  })
+  assert.equal(other.command, '/app/electron')
 })

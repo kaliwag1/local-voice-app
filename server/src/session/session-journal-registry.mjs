@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { SessionJournal } from './session-journal.mjs'
 import { decodeSessionJournal } from './session-journal-format.mjs'
 
@@ -9,6 +10,24 @@ function pathSegment(value, fallback) {
   // Injective and traversal-safe: unlike replacing punctuation with '_', this
   // cannot make two distinct owner/session ids share a journal directory.
   return Buffer.from(text, 'utf8').toString('base64url')
+}
+
+export async function readSessionMeta(path) {
+  try {
+    const parsed = JSON.parse(await readFile(path, 'utf8'))
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+export function readSessionMetaSync(path) {
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8'))
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
 }
 
 /** Owns per-owner/per-session journals without coupling them to a domain model. */
@@ -62,6 +81,51 @@ export class SessionJournalRegistry {
     await journal.flush()
     await journal.open()
     return journal.list()
+  }
+
+  // Per-session sidecar for facts that are not conversation events (archive
+  // state today). It lives beside session.jsonl so the append-only journal
+  // format and its replay/validation stay untouched.
+  metaPath(ownerId, sessionId = 'main') {
+    return resolve(dirname(this.get(ownerId, sessionId).filePath), 'meta.json')
+  }
+
+  async readMeta(ownerId, sessionId = 'main') {
+    return readSessionMeta(this.metaPath(ownerId, sessionId))
+  }
+
+  async updateMeta(ownerId, sessionId = 'main', patch = {}) {
+    const path = this.metaPath(ownerId, sessionId)
+    const next = { ...(await readSessionMeta(path)), ...patch, updatedAt: new Date().toISOString() }
+    await mkdir(dirname(path), { recursive: true, mode: 0o700 })
+    await writeFile(path, `${JSON.stringify(next)}\n`, { encoding: 'utf8', mode: 0o600 })
+    return next
+  }
+
+  /** Whether a journal exists on disk for this owner/session pair. */
+  async exists(ownerId, sessionId = 'main') {
+    try {
+      await readFile(this.get(ownerId, sessionId).filePath)
+      return true
+    } catch (error) {
+      if (error.code === 'ENOENT') return false
+      throw error
+    }
+  }
+
+  /** Permanently removes one session's journal directory and forgets it. */
+  async delete(ownerId, sessionId = 'main') {
+    const key = this.key(ownerId, sessionId)
+    const journal = this.get(ownerId, sessionId)
+    await journal.flush()
+    const directory = dirname(journal.filePath)
+    // Owner/session ids are base64url segments, so the directory is always
+    // exactly <root>/<owner>/<session>; never remove anything shallower.
+    if (resolve(directory, '..', '..') !== this.directory) {
+      throw new Error('refusing to delete outside the session journal root')
+    }
+    this.journals.delete(key)
+    await rm(directory, { recursive: true, force: true })
   }
 
   readAllSync() {

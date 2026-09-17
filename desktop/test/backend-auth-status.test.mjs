@@ -160,3 +160,44 @@ test('passes the requested platform into command probes', async () => {
   assert.equal(observed.platform, 'win32')
   assert.equal(observed.env.PATH, 'C:\\Node')
 })
+
+test('OpenCode counts as set up when its config uses a local provider, without credentials', async () => {
+  const localConfig = JSON.stringify({
+    model: 'lmstudio/google/gemma-4-26b-a4b-qat',
+    provider: { lmstudio: {
+      npm: '@ai-sdk/openai-compatible',
+      options: { baseURL: 'http://127.0.0.1:1234/v1' },
+      models: { 'google/gemma-4-26b-a4b-qat': { name: 'Gemma' } },
+    } },
+  })
+  const env = { USERPROFILE: 'C:\\Users\\me' }
+  const expectedPath = join('C:\\Users\\me', '.config', 'opencode', 'opencode.json')
+  assert.equal((await inspectBackendAuthentication('opencode', {
+    command: 'opencode',
+    env,
+    run: result('0 credentials'),
+    readCredentialFile: async path => {
+      assert.equal(path, expectedPath)
+      return `\uFEFF${localConfig}`
+    },
+  })).status, 'authenticated')
+
+  // A cloud provider still goes through the credential probe.
+  const cloudConfig = JSON.stringify({
+    model: 'anthropic/claude', provider: { anthropic: { options: { baseURL: 'https://api.anthropic.com' }, models: { claude: {} } } },
+  })
+  assert.equal((await inspectBackendAuthentication('opencode', {
+    command: 'opencode',
+    env,
+    run: result('0 credentials'),
+    readCredentialFile: async () => cloudConfig,
+  })).status, 'unauthenticated')
+
+  // No config at all: unchanged behaviour.
+  assert.equal((await inspectBackendAuthentication('opencode', {
+    command: 'opencode',
+    env,
+    run: result('0 credentials'),
+    readCredentialFile: async () => { throw Object.assign(new Error('nope'), { code: 'ENOENT' }) },
+  })).status, 'unauthenticated')
+})

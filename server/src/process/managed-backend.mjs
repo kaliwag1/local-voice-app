@@ -123,7 +123,13 @@ function spawnSpec(root, platform, env, driver) {
       cwd: root,
       env: childEnvironment,
       detached: platform !== 'win32',
-      stdio: 'inherit',
+      // The Gateway runs as an Electron utility process with no usable
+      // console handles. Inheriting them makes the node-mode child (and the
+      // OpenCode binary under it) allocate a console of its own, which shows
+      // up as a blank terminal window on Windows. Pipe instead and forward
+      // the output to the Gateway log, where it is actually useful.
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     },
   }
 }
@@ -227,5 +233,26 @@ export async function startManagedBackend({
       error,
     })
   })
+  forwardBackendOutput(child, backend.protocol, logger)
   return new ManagedBackendRuntime(child, { platform })
+}
+
+function forwardBackendOutput(child, protocol, logger) {
+  for (const [stream, level] of [['stdout', 'info'], ['stderr', 'warn']]) {
+    const source = child?.[stream]
+    if (!source?.on) continue
+    let pending = ''
+    source.setEncoding?.('utf8')
+    source.on('data', chunk => {
+      pending += String(chunk)
+      const lines = pending.split(/\r?\n/)
+      pending = lines.pop() || ''
+      for (const line of lines) {
+        if (line.trim()) logger?.[level]('backend.output', { backend: protocol, stream, line: line.slice(0, 2000) })
+      }
+    })
+    source.on('end', () => {
+      if (pending.trim()) logger?.[level]('backend.output', { backend: protocol, stream, line: pending.slice(0, 2000) })
+    })
+  }
 }

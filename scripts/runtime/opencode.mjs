@@ -5,6 +5,7 @@
 //         node opencode.mjs <command>   (arbitrary opencode subcommand)
 import { spawnAndProxy, commandAvailable } from './launcher.mjs'
 import { resolve, join } from 'node:path'
+import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(join(fileURLToPath(import.meta.url), '..', '..', '..'))
@@ -63,10 +64,18 @@ if (process.env.QWEN_AUDIO_AGENT_OPENCODE_XDG_CONFIG_HOME) {
 async function runBinary() {
   const bin = process.env.OPENCODE_BIN
   if (!bin) fatal('OPENCODE_RUNTIME=binary requires OPENCODE_BIN.')
+  if (!existsSync(bin) && !commandAvailable(bin)) {
+    fatal(
+      `OPENCODE_BIN does not exist: ${bin}\n` +
+      'Install OpenCode (npm i -g opencode-ai) or correct OPENCODE_BIN in config.env. ' +
+      'Note: a path under an app sandbox (e.g. ...\\Packages\\OpenAI.Codex_*\\LocalCache\\Roaming\\npm) ' +
+      'is only valid inside that sandbox and will not resolve for the desktop app.',
+    )
+  }
   const args = COMMAND === 'serve'
     ? ['serve', '--hostname', '127.0.0.1', '--port', PORT, ...EXTRA]
     : [COMMAND, ...EXTRA]
-  await spawnAndProxy(bin, args)
+  return spawnAndProxy(bin, args)
 }
 
 async function runInstalled() {
@@ -78,7 +87,7 @@ async function runInstalled() {
   const args = COMMAND === 'serve'
     ? ['serve', '--hostname', '127.0.0.1', '--port', PORT, ...EXTRA]
     : [COMMAND, ...EXTRA]
-  await spawnAndProxy('opencode', args)
+  return spawnAndProxy('opencode', args)
 }
 
 async function runPackage() {
@@ -89,7 +98,7 @@ async function runPackage() {
   const args = COMMAND === 'serve'
     ? ['--yes', PKG, 'serve', '--hostname', '127.0.0.1', '--port', PORT, ...EXTRA]
     : ['--yes', PKG, COMMAND, ...EXTRA]
-  await spawnAndProxy('npx', args)
+  return spawnAndProxy('npx', args)
 }
 
 async function runManagedPackage() {
@@ -97,38 +106,42 @@ async function runManagedPackage() {
   if (!BACKEND_MODEL || BACKEND_MODEL.toLowerCase() === 'auto') {
     fatal('Automatic OpenCode setup requires QWEN_AUDIO_AGENT_BACKEND_MODEL.')
   }
-  await runPackage()
+  return runPackage()
 }
 
 // ── route ────────────────────────────────────────────────────────────────────
 
+let exitCode = 0
 switch (RUNTIME) {
   case 'binary':
     if (!process.env.OPENCODE_BIN) fatal('OPENCODE_RUNTIME=binary requires OPENCODE_BIN.')
-    await runBinary(); break
+    exitCode = await runBinary(); break
   case 'source': fatal('Source runtime not supported via Node launcher.'); break
-  case 'package': await runPackage(); break
-  case 'installed': await runInstalled(); break
+  case 'package': exitCode = await runPackage(); break
+  case 'installed': exitCode = await runInstalled(); break
   case 'auto': break
   default: fatal(`Unknown OPENCODE_RUNTIME: ${RUNTIME}`)
 }
 
 if (RUNTIME === 'auto') {
   if (process.env.OPENCODE_BIN) {
-    await runBinary()
+    exitCode = await runBinary()
   } else if (commandAvailable('opencode')) {
     const ver = await installedVersion()
     if (versionGte(ver, MIN_VERSION)) {
-      await runInstalled()
+      exitCode = await runInstalled()
     } else if (DESKTOP_INSTALLED_ONLY === '1') {
       fatal(`Installed OpenCode ${ver} is older than the supported minimum ${MIN_VERSION}.`)
     } else {
       console.error(`Installed OpenCode ${ver} is older than the supported minimum; using ${PKG}.`)
-      await runManagedPackage()
+      exitCode = await runManagedPackage()
     }
   } else {
-    await runManagedPackage()
+    exitCode = await runManagedPackage()
   }
 }
 
-process.exit(0)
+// Propagate the child's real exit code instead of masking failures as success.
+// A missing binary or a crashed child must surface a non-zero code (and its
+// stderr) so the gateway reports the true reason rather than backend.exited=0.
+process.exit(typeof exitCode === 'number' ? exitCode : 0)

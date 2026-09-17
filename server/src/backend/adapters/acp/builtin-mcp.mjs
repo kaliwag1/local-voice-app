@@ -12,6 +12,7 @@ import { createRequire } from 'node:module'
 import { execFileSync } from 'node:child_process'
 import { dirname, join, sep } from 'node:path'
 import { existsSync } from 'node:fs'
+import { findExecutable } from '../../../../../shared/backend/setup.mjs'
 
 const require = createRequire(import.meta.url)
 const lifecycleMetadata = Symbol('qwen-audio-agent.builtin-mcp-lifecycle')
@@ -50,21 +51,42 @@ function resolvePackageBin(specifier, binName) {
   }
 }
 
-export function computerUseMcpServer(env = process.env) {
+// The backend Agent spawns this server itself, outside the Gateway's control
+// of window creation. On Windows, Electron running as Node allocates a
+// visible console when it is started without one, which surfaces as a blank
+// terminal window every time the backend connects. A real Node binary does
+// not, so prefer one from PATH there; the Electron fallback keeps working
+// where Node is not installed.
+export function computerUseRuntime({
+  env = process.env,
+  platform = process.platform,
+  execPath = process.execPath,
+  find = findExecutable,
+} = {}) {
+  if (platform === 'win32' && !env.QWEN_AUDIO_AGENT_NODE_BIN_DISABLED) {
+    const explicit = String(env.QWEN_AUDIO_AGENT_NODE_BIN || '').trim()
+    const node = explicit || find('node', { env, platform })
+    if (node) return { command: node, env: [] }
+  }
+  // The bin is a Node script; when the Gateway runs inside Electron the
+  // backend inherits execPath, so force plain Node semantics.
+  return { command: execPath, env: [{ name: 'ELECTRON_RUN_AS_NODE', value: '1' }] }
+}
+
+export function computerUseMcpServer(env = process.env, runtimeOptions = {}) {
   if (!settingEnabled(env.QWEN_AUDIO_AGENT_COMPUTER_USE)) return null
   const binPath = resolvePackageBin(
     '@qwen-code/open-computer-use',
     'open-computer-use',
   )
   if (!binPath) return null
+  const runtime = computerUseRuntime({ env, ...runtimeOptions })
   const descriptor = {
     name: 'open-computer-use',
     type: 'stdio',
-    command: process.execPath,
+    command: runtime.command,
     args: [binPath, 'mcp'],
-    // The bin is a Node script; when the Gateway runs inside Electron the
-    // backend inherits execPath, so force plain Node semantics.
-    env: [{ name: 'ELECTRON_RUN_AS_NODE', value: '1' }],
+    env: runtime.env,
   }
   Object.defineProperty(descriptor, lifecycleMetadata, {
     value: { kind: 'open-computer-use' },

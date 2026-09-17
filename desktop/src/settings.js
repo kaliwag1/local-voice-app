@@ -311,7 +311,12 @@ function localizeUpdaterStatus(status) {
   }
   if (status?.phase === 'downloaded') return `Version ${status.updateVersion} is ready`
   if (status?.phase === 'current') return `${version} · Up to date`
-  if (status?.phase === 'error') return `${version} · ${status.message || 'Update check failed'}`
+  if (status?.phase === 'error') {
+    const message = status.message === '自定义构建版本，自动更新已关闭'
+      ? 'Custom build · automatic updates are off'
+      : status.message || 'Update check failed'
+    return `${version} · ${message}`
+  }
   return version
 }
 

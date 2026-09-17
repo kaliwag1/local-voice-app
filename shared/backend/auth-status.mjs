@@ -43,7 +43,7 @@ const QWEN_CREDENTIAL_KEYS = [
 
 async function readJson(path, readFileImpl = readFile) {
   try {
-    return JSON.parse(await readFileImpl(path, 'utf8'))
+    return JSON.parse(String(await readFileImpl(path, 'utf8')).replace(/^\uFEFF/, ''))
   } catch {
     return null
   }
@@ -113,6 +113,45 @@ async function piAuthenticationStatus({
   if (/\bready\b/i.test(result.output)) return 'authenticated'
   if (/missing|not (?:configured|authenticated)|no (?:credential|api key)/i.test(result.output)) {
     return 'unauthenticated'
+  }
+  return 'unknown'
+}
+
+// OpenCode needs no login when its config points at a self-hosted,
+// OpenAI-compatible provider (LM Studio, Ollama, ...): the model is served
+// locally and `opencode auth list` legitimately reports zero credentials.
+// Treat such a config as set up; otherwise defer to the credential probe.
+export function openCodeLocalProviderStatus(config) {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) return 'unknown'
+  const model = String(config.model || '').trim()
+  const providers = config.provider && typeof config.provider === 'object' ? config.provider : {}
+  const providerId = model.includes('/') ? model.slice(0, model.indexOf('/')) : ''
+  const provider = providerId ? providers[providerId] : null
+  const baseUrl = String(provider?.options?.baseURL || provider?.options?.baseUrl || '').trim()
+  if (!provider || !baseUrl) return 'unknown'
+  let host = ''
+  try { host = new URL(baseUrl).hostname.toLowerCase() } catch { return 'unknown' }
+  const local = ['localhost', '127.0.0.1', '::1', '[::1]', '0.0.0.0'].includes(host)
+    || /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)
+  const hasModelEntry = provider.models && typeof provider.models === 'object'
+    && Object.keys(provider.models).length > 0
+  return local && hasModelEntry ? 'authenticated' : 'unknown'
+}
+
+async function openCodeConfigStatus({ env, readFileImpl = readFile }) {
+  const home = String(env.HOME || env.USERPROFILE || '').trim()
+  const configHome = String(
+    env.QWEN_AUDIO_AGENT_OPENCODE_XDG_CONFIG_HOME
+    || env.XDG_CONFIG_HOME
+    || (home ? join(home, '.config') : ''),
+  ).trim()
+  const candidates = [
+    String(env.OPENCODE_CONFIG || '').trim(),
+    configHome ? join(configHome, 'opencode', 'opencode.json') : '',
+  ].filter(Boolean)
+  for (const path of candidates) {
+    const status = openCodeLocalProviderStatus(await readJson(path, readFileImpl))
+    if (status === 'authenticated') return status
   }
   return 'unknown'
 }
@@ -278,6 +317,10 @@ export async function inspectBackendAuthentication(id, {
   }
   if (probe?.kind === 'openclaw-state') {
     return { status: openClawInitializationStatus({ env, pathExists }) }
+  }
+  if (id === 'opencode') {
+    const local = await openCodeConfigStatus({ env, readFileImpl: readCredentialFile })
+    if (local === 'authenticated') return { status: local }
   }
   if (probe?.kind !== 'command' || !command) return { status: 'unknown' }
   const parse = STATUS_PARSERS[probe.parser]

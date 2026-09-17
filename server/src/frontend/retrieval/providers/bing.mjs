@@ -103,9 +103,17 @@ async function boundedText(response) {
   return text
 }
 
+// Bing market code (language-REGION), e.g. en-GB, en-US, zh-CN. It decides
+// which regional index answers and what language the results come back in.
+export function resolveBingMarket(value, fallback = 'zh-CN') {
+  const market = clean(value)
+  return /^[a-z]{2,3}-[A-Za-z]{2,4}$/u.test(market) ? market : fallback
+}
+
 export class BingWebSearchProvider {
-  constructor({ fetchImpl = fetch } = {}) {
+  constructor({ fetchImpl = fetch, market, env = process.env } = {}) {
     this.fetchImpl = fetchImpl
+    this.market = resolveBingMarket(market ?? env.QWEN_AUDIO_WEB_SEARCH_MARKET)
   }
 
   describe() {
@@ -158,7 +166,8 @@ export class BingWebSearchProvider {
     const boundedLimit = Math.max(1, Math.min(8, Math.trunc(Number(limit) || 5)))
     const htmlUrl = new URL(SEARCH_ENDPOINT)
     htmlUrl.searchParams.set('q', normalizedQuery)
-    htmlUrl.searchParams.set('mkt', 'zh-CN')
+    htmlUrl.searchParams.set('mkt', this.market)
+    htmlUrl.searchParams.set('setlang', this.market.split('-')[0])
     const html = await this.#fetchPage(htmlUrl, 'text/html', signal)
     const results = parseBingHtmlResults(html).slice(0, boundedLimit)
     if (!results.length) {

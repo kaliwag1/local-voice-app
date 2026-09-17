@@ -42,6 +42,7 @@ import { PermissionPolicy } from '../task/permission-policy.mjs'
 import { TaskManager } from '../task/task-manager.mjs'
 import { TaskStore } from '../task/task-store.mjs'
 import { SessionJournalRegistry } from '../session/session-journal-registry.mjs'
+import { listSessionSummaries } from '../session/session-summaries.mjs'
 import { ReminderScheduler } from '../task/reminder-scheduler.mjs'
 import { webDistributionPath } from '../core/install-paths.mjs'
 import { installOfflineNotifications } from './offline-notifications.mjs'
@@ -737,6 +738,70 @@ app.get('/api/timeline', (req, res) => {
 // Durable session facts are intentionally exposed separately from the UI
 // timeline. Clients may use this for reconnect/recovery; projections should
 // not need to understand the on-disk JSONL format.
+app.get('/api/conversations', async (req, res, next) => {
+  try {
+    res.json({ sessions: await listSessionSummaries(
+      sessionJournalRuntime,
+      req.identity.ownerId,
+    ) })
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.post('/api/conversations', async (req, res, next) => {
+  try {
+    const sessionId = randomUUID()
+    await sessionJournalRuntime.read(req.identity.ownerId, sessionId)
+    res.status(201).json({ sessionId })
+  } catch (error) {
+    next(error)
+  }
+})
+
+// Archive is a reversible sidebar-only flag; the journal itself is untouched.
+app.patch('/api/conversations/:sessionId', async (req, res, next) => {
+  try {
+    const sessionId = String(req.params.sessionId || '').trim()
+    const archived = req.body?.archived
+    if (!sessionId || typeof archived !== 'boolean') {
+      return res.status(400).json({ error: 'archived (boolean) is required' })
+    }
+    if (!await sessionJournalRuntime.exists(req.identity.ownerId, sessionId)) {
+      return res.status(404).json({ error: 'conversation not found' })
+    }
+    const meta = await sessionJournalRuntime.updateMeta(req.identity.ownerId, sessionId, { archived })
+    logger.info('conversation.archived', { sessionId, archived })
+    res.json({ sessionId, archived: meta.archived === true })
+  } catch (error) {
+    next(error)
+  }
+})
+
+// Deleting removes the durable journal for good. A chat with work still in
+// flight is refused so background tasks keep a home to report into.
+app.delete('/api/conversations/:sessionId', async (req, res, next) => {
+  try {
+    const sessionId = String(req.params.sessionId || '').trim()
+    if (!sessionId) return res.status(400).json({ error: 'sessionId is required' })
+    if (!await sessionJournalRuntime.exists(req.identity.ownerId, sessionId)) {
+      return res.status(404).json({ error: 'conversation not found' })
+    }
+    const active = taskManager.list({ ownerId: req.identity.ownerId, sessionId, active: true })
+    if (active.length) {
+      return res.status(409).json({
+        error: 'This chat still has a task running. Wait for it to finish or cancel it first.',
+        activeTasks: active.map(task => task.id),
+      })
+    }
+    await sessionJournalRuntime.delete(req.identity.ownerId, sessionId)
+    logger.info('conversation.deleted', { sessionId })
+    res.status(204).end()
+  } catch (error) {
+    next(error)
+  }
+})
+
 app.get('/api/sessions/:sessionId/events', async (req, res, next) => {
   try {
     const events = await sessionJournalRuntime.read(

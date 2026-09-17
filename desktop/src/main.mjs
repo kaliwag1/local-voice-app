@@ -16,6 +16,7 @@ import {
   existsSync,
   readFileSync,
 } from 'node:fs'
+import { readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseEnv } from 'node:util'
@@ -93,6 +94,8 @@ import {
 import { createGracefulShutdown } from './graceful-shutdown.mjs'
 import { DesktopPresence } from './desktop-presence.mjs'
 import { createElectronGatewayCredentialStore } from './gateway-credential-store.mjs'
+import { createLocalModelSwitcher } from './local-model-switch.mjs'
+import { transcribeAudioFile } from './local-audio-transcription.mjs'
 
 // Gateway paths belong to the Gateway; Electron's userData holds only client
 // preferences, credentials, presentation assets and local caches.
@@ -199,6 +202,44 @@ let gatewayAccessToken = String(
   || '',
 ).trim()
 let pendingGatewayPairingCode = null
+
+const localModelSwitcher = createLocalModelSwitcher({
+  gateway: {
+    ownership: () => process.platform === 'win32'
+      && isLoopbackUrl(configuredGatewayOrigin)
+      && !borrowedGatewayOrigin
+      && embeddedGateway?.running
+      ? 'owned'
+      : 'unavailable',
+    stop: async () => embeddedGateway.stop(),
+    resetBackendSessions: async () => {
+      // Drop the Gateway's remembered OpenCode coordinator sessions (they are
+      // pinned to the previous model) so the restarted Gateway opens new ones.
+      const statePath = resolve(runtimeEnvironment.stateDirectory, 'acp-sessions.json')
+      let state
+      try {
+        state = JSON.parse(await readFile(statePath, 'utf8'))
+      } catch (error) {
+        if (error.code === 'ENOENT') return
+        throw error
+      }
+      for (const section of ['coordinators', 'reconciliations']) {
+        for (const key of Object.keys(state?.[section] || {})) {
+          if (key.startsWith('opencode:')) delete state[section][key]
+        }
+      }
+      await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8')
+      logger.info('local_model.backend_sessions_reset', { path: statePath })
+    },
+    start: async () => {
+      appOrigin = await startLocalGateway(configuredGatewayOrigin)
+      process.env.QWEN_AUDIO_AGENT_URL = appOrigin
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        await loadQwenAudioAgent(mainWindow)
+      }
+    },
+  },
+})
 
 const desktopPresence = new DesktopPresence({
   getWindow: () => mainWindow,
@@ -403,6 +444,10 @@ async function startConfiguredRuntime(settings = configuredOrigin().settings) {
   process.env.QWEN_AUDIO_ORB_STYLE = settings.orbStyle
   process.env.QWEN_AUDIO_ORB_SKIN = settings.orbSkin
   await ensureDesktopUi()
+  if (process.env.QWEN_AUDIO_OPEN_CONVERSATION_ON_START === '1') {
+    setDesktopSurfaceMode('panel')
+    desktopPresence.wake('panel')
+  }
   lastRuntimeError = ''
   return appOrigin
 }
@@ -814,6 +859,47 @@ function updateDesktopTaskSurface(value) {
 ipcMain.on('qwen-audio-agent:task-card-count', (event, value) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) return
   updateDesktopTaskSurface(value)
+})
+
+ipcMain.handle('qwen-audio-agent:local-models-list', async event => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) {
+    throw new Error('Only the desktop conversation window can list local models.')
+  }
+  try {
+    return await localModelSwitcher.list()
+  } catch (error) {
+    return { ok: false, models: [], selectedModelKey: null, error: error.message }
+  }
+})
+
+ipcMain.handle('qwen-audio-agent:local-model-switch', async (event, modelKey) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) {
+    throw new Error('Only the desktop conversation window can switch local models.')
+  }
+  if (typeof modelKey !== 'string' || modelKey.length > 250) {
+    return { ok: false, error: 'Choose an installed LM Studio model.' }
+  }
+  return localModelSwitcher.switchModel(modelKey)
+})
+
+ipcMain.handle('qwen-audio-agent:audio-file-pick', async event => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) {
+    throw new Error('Only the desktop conversation window can choose audio files.')
+  }
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile'],
+    filters: [{ name: 'Audio files', extensions: ['wav', 'wave', 'flac', 'ogg', 'opus', 'mp3', 'aiff', 'aif'] }],
+  })
+  if (result.canceled || !result.filePaths[0]) return null
+  const filePath = result.filePaths[0]
+  return { path: filePath, name: filePath.split(/[\\/]/).pop() }
+})
+
+ipcMain.handle('qwen-audio-agent:audio-file-transcribe', async (event, filePath) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) {
+    throw new Error('Only the desktop conversation window can transcribe audio files.')
+  }
+  return transcribeAudioFile({ filePath })
 })
 
 ipcMain.handle('qwen-audio-agent:wake-shortcut-pause', event => {
@@ -1270,6 +1356,9 @@ if (!app.requestSingleInstanceLock()) {
       showSettings()
       return
     }
+    if (process.env.QWEN_AUDIO_OPEN_CONVERSATION_ON_START === '1') {
+      setDesktopSurfaceMode('panel')
+    }
     desktopPresence.wake('second-instance')
   })
 
@@ -1298,7 +1387,11 @@ if (!app.requestSingleInstanceLock()) {
     }
     desktopUpdater = createDesktopUpdater({
       currentVersion: app.getVersion(),
-      enabled: app.isPackaged,
+      // Only installer builds ship app-update.yml. An unpacked, self-built
+      // app (electron-builder --dir) has none, and auto-updating it would
+      // replace local modifications with the stock release anyway.
+      enabled: app.isPackaged
+        && existsSync(resolve(process.resourcesPath, 'app-update.yml')),
       notify: status => {
         if (settingsWindow && !settingsWindow.isDestroyed()) {
           settingsWindow.webContents.send(
