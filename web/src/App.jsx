@@ -207,6 +207,8 @@ export default function App() {
   const [sessionId, setSessionId] = useState(getSessionId)
   const [sessions, setSessions] = useState([])
   const [showArchivedChats, setShowArchivedChats] = useState(false)
+  const [editingChat, setEditingChat] = useState(null)
+  const titleEditFinished = useRef('')
   const [chatsOpen, setChatsOpen] = useState(true)
   const [showAudioTranscriber, setShowAudioTranscriber] = useState(false)
   const [localModels, setLocalModels] = useState([])
@@ -312,6 +314,16 @@ export default function App() {
       message.role === 'user' && !message.live
     ))) return undefined
     const timer = setTimeout(refreshSessions, 800)
+    return () => clearTimeout(timer)
+  }, [messages, refreshSessions])
+
+  useEffect(() => {
+    if (!desktopOrbMode || !messages.some(message => (
+      message.role === 'assistant' && !message.live
+    ))) return undefined
+    // The first list request starts background title generation; fetch once
+    // more after the local model has had time to return its title.
+    const timer = setTimeout(refreshSessions, 8_000)
     return () => clearTimeout(timer)
   }, [messages, refreshSessions])
 
@@ -1183,6 +1195,43 @@ export default function App() {
     }
   }
 
+  const setSessionPinned = async (target, pinned) => {
+    try {
+      const response = await gatewayFetch(`api/conversations/${encodeURIComponent(target)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pinned }),
+      })
+      if (!response.ok) throw new Error('pin failed')
+      setSessions(current => current.map(item => (
+        item.sessionId === target ? { ...item, pinned } : item
+      )))
+    } catch {
+      setActivity('Could not update that chat. Please try again.')
+    }
+  }
+
+  const saveChatTitle = async (target, value) => {
+    if (titleEditFinished.current === target) return
+    titleEditFinished.current = target
+    setEditingChat(null)
+    const title = value.replace(/\s+/gu, ' ').trim().slice(0, 80)
+    if (!title) return
+    try {
+      const response = await gatewayFetch(`api/conversations/${encodeURIComponent(target)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      })
+      if (!response.ok) throw new Error('rename failed')
+      setSessions(current => current.map(item => (
+        item.sessionId === target ? { ...item, title, titleSource: 'custom' } : item
+      )))
+    } catch {
+      setActivity('Could not rename that chat. Please try again.')
+    }
+  }
+
   const deleteSession = async target => {
     const item = sessions.find(entry => entry.sessionId === target)
     const label = item?.title ? `"${item.title}"` : 'this chat'
@@ -1575,25 +1624,61 @@ export default function App() {
     : [{ sessionId, title: 'New chat', updatedAt: '' }, ...sessions]
   // The open chat always stays in the main list, even if it was archived.
   const visibleSessions = knownSessions.filter(item => !item.archived || item.sessionId === sessionId)
+    .sort((left, right) => Number(Boolean(right.pinned)) - Number(Boolean(left.pinned))
+      || (Date.parse(right.updatedAt) || 0) - (Date.parse(left.updatedAt) || 0))
   const archivedSessions = knownSessions.filter(item => item.archived && item.sessionId !== sessionId)
   const formatChatDate = value => new Intl.DateTimeFormat(undefined, {
     month: 'short', day: 'numeric',
   }).format(new Date(value))
   const renderChatItem = item => <div
     key={item.sessionId}
-    className={`chat-item${item.sessionId === sessionId ? ' active' : ''}${item.archived ? ' archived' : ''}`}
+    className={`chat-item${item.sessionId === sessionId ? ' active' : ''}${item.archived ? ' archived' : ''}${item.pinned ? ' pinned' : ''}`}
   >
-    <button
+    {editingChat?.sessionId === item.sessionId ? <input
+      className="chat-title-input"
+      aria-label="Chat title"
+      maxLength={80}
+      value={editingChat.title}
+      onChange={event => setEditingChat({ sessionId: item.sessionId, title: event.target.value })}
+      onKeyDown={event => {
+        if (event.key === 'Enter') void saveChatTitle(item.sessionId, editingChat.title)
+        if (event.key === 'Escape') {
+          titleEditFinished.current = item.sessionId
+          setEditingChat(null)
+        }
+      }}
+      onBlur={() => void saveChatTitle(item.sessionId, editingChat.title)}
+      ref={node => node?.focus()}
+    /> : <button
       type="button"
       className="chat-item-main"
       onClick={() => switchSession(item.sessionId)}
+      onDoubleClick={() => {
+        titleEditFinished.current = ''
+        setEditingChat({ sessionId: item.sessionId, title: item.title || '' })
+      }}
       aria-current={item.sessionId === sessionId ? 'page' : undefined}
-      title={item.title}
+      title={`${item.title || 'New chat'} · Double-click to rename`}
     >
-      <span>{item.title || 'New chat'}</span>
+      <span>{item.pinned ? '● ' : ''}{item.title || 'New chat'}</span>
       {item.updatedAt && <small>{formatChatDate(item.updatedAt)}</small>}
-    </button>
+    </button>}
     <div className="chat-item-actions">
+      <button
+        type="button"
+        onClick={() => {
+          titleEditFinished.current = ''
+          setEditingChat({ sessionId: item.sessionId, title: item.title || '' })
+        }}
+        title="Rename chat"
+        aria-label="Rename chat"
+      >✎</button>
+      <button
+        type="button"
+        onClick={() => setSessionPinned(item.sessionId, !item.pinned)}
+        title={item.pinned ? 'Unpin chat' : 'Pin chat'}
+        aria-label={item.pinned ? 'Unpin chat' : 'Pin chat'}
+      >{item.pinned ? '◆' : '◇'}</button>
       <button
         type="button"
         onClick={() => setSessionArchived(item.sessionId, !item.archived)}

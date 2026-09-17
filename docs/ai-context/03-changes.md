@@ -2,6 +2,15 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-17 — chat titles (Claude draft finished with Codex)
+- **Local chat titles** — the Gateway asks the selected LM Studio model for a short title after the
+  first user/assistant exchange, stores it in each session's `meta.json`, and retries briefly if
+  LM Studio is still starting. It never uses the optional cloud text model. `conversation-titler.mjs`,
+  `gateway-application.mjs`, `session-summaries.mjs`.
+- **Rename and pin in the chat sidebar** — double-click a title or use the rename action, then Enter
+  or click away to save; Escape cancels. Pin/unpin keeps important chats at the top. `web/src/App.jsx`,
+  `styles.css`. Server-side tests and web build pass; desktop rebuild and live check remain.
+
 ## 2026-09-17 — session with Claude (Cowork)
 - **Task cards show the files they touched** with an "Open folder" button (reveals in Explorer via
   `qwen-audio-agent:reveal-path` IPC; absolute + existing paths only). Paths come from ACP tool-call

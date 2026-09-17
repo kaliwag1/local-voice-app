@@ -43,6 +43,10 @@ import { TaskManager } from '../task/task-manager.mjs'
 import { TaskStore } from '../task/task-store.mjs'
 import { SessionJournalRegistry } from '../session/session-journal-registry.mjs'
 import { listSessionSummaries } from '../session/session-summaries.mjs'
+import {
+  ConversationTitler,
+  createLocalTitleModelCall,
+} from '../session/conversation-titler.mjs'
 import { ReminderScheduler } from '../task/reminder-scheduler.mjs'
 import { webDistributionPath } from '../core/install-paths.mjs'
 import { installOfflineNotifications } from './offline-notifications.mjs'
@@ -312,6 +316,19 @@ const textModelCall = config.memoryAutoEnabled
       model: config.memoryModel,
     })
   : null
+// Chat titles always use the local LM Studio model. Off with QWEN_AUDIO_CHAT_TITLES=off.
+const conversationTitler = String(process.env.QWEN_AUDIO_CHAT_TITLES || 'on').toLowerCase() === 'off'
+  ? null
+  : new ConversationTitler({
+      journal: sessionJournalRuntime,
+      llmCall: createLocalTitleModelCall({
+        baseUrl: process.env.QWEN_AUDIO_LOCAL_LLM_BASE_URL || 'http://127.0.0.1:1234/v1',
+        selectionFile: process.env.QWEN_AUDIO_LOCAL_VOICE_ROOT
+          ? resolve(process.env.QWEN_AUDIO_LOCAL_VOICE_ROOT, '.selected-voice-model')
+          : '',
+      }),
+      logger,
+    })
 const optionalModules = optionalModuleFactories.map(create => create({
   config, logger, conversationSync, textModelCall, audit: operationAudit,
   workBackend, agent, backendRuntime, taskManager,
@@ -740,10 +757,14 @@ app.get('/api/timeline', (req, res) => {
 // not need to understand the on-disk JSONL format.
 app.get('/api/conversations', async (req, res, next) => {
   try {
-    res.json({ sessions: await listSessionSummaries(
+    const sessions = await listSessionSummaries(
       sessionJournalRuntime,
       req.identity.ownerId,
-    ) })
+    )
+    // Chats that have had a real exchange but no title yet get one in the
+    // background; the client picks it up on its next list refresh.
+    conversationTitler?.schedule(req.identity.ownerId, sessions)
+    res.json({ sessions })
   } catch (error) {
     next(error)
   }
@@ -759,20 +780,35 @@ app.post('/api/conversations', async (req, res, next) => {
   }
 })
 
-// Archive is a reversible sidebar-only flag; the journal itself is untouched.
+// Sidebar-only facts (archive, pin, title) live in the sidecar; the journal
+// itself is untouched. An empty title clears a rename and lets the
+// derived/auto title show again.
 app.patch('/api/conversations/:sessionId', async (req, res, next) => {
   try {
     const sessionId = String(req.params.sessionId || '').trim()
-    const archived = req.body?.archived
-    if (!sessionId || typeof archived !== 'boolean') {
-      return res.status(400).json({ error: 'archived (boolean) is required' })
+    const body = req.body && typeof req.body === 'object' ? req.body : {}
+    const patch = {}
+    if (typeof body.archived === 'boolean') patch.archived = body.archived
+    if (typeof body.pinned === 'boolean') patch.pinned = body.pinned
+    if (typeof body.title === 'string') {
+      const title = body.title.replace(/\s+/gu, ' ').trim().slice(0, 80)
+      Object.assign(patch, title ? { title, titleSource: 'custom' } : { title: '', titleSource: '' })
+    }
+    if (!sessionId || !Object.keys(patch).length) {
+      return res.status(400).json({ error: 'archived, pinned (boolean) or title (string) is required' })
     }
     if (!await sessionJournalRuntime.exists(req.identity.ownerId, sessionId)) {
       return res.status(404).json({ error: 'conversation not found' })
     }
-    const meta = await sessionJournalRuntime.updateMeta(req.identity.ownerId, sessionId, { archived })
-    logger.info('conversation.archived', { sessionId, archived })
-    res.json({ sessionId, archived: meta.archived === true })
+    const meta = await sessionJournalRuntime.updateMeta(req.identity.ownerId, sessionId, patch)
+    logger.info('conversation.updated', { sessionId, ...patch })
+    res.json({
+      sessionId,
+      archived: meta.archived === true,
+      pinned: meta.pinned === true,
+      title: String(meta.title || ''),
+      titleSource: meta.title ? (meta.titleSource === 'auto' ? 'auto' : 'custom') : 'derived',
+    })
   } catch (error) {
     next(error)
   }

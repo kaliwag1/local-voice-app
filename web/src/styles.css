@@ -441,11 +441,24 @@ html[data-desktop="orb"] #root {
   color: #f2efff;
   background: #785cf42a;
 }
+.chat-item:hover .chat-item-main,
+.chat-item:focus-within .chat-item-main { padding-right: 100px; }
 
 .chat-item.active .chat-item-main { border-color: #785cf45c; }
 .chat-item.archived .chat-item-main { color: #7d7a8a; }
 .chat-item-main span { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .chat-item-main small { color: #8d899a; font-size: 10px; }
+.chat-item.pinned .chat-item-main span { color: #ded4ff; }
+.chat-title-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #785cf4;
+  border-radius: 9px;
+  color: #f2efff;
+  background: #222036;
+  font: inherit;
+  font-size: 12px;
+}
 
 .chat-item-actions {
   position: absolute;

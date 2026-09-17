@@ -4,7 +4,7 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 
 ## Agreed next (in this order)
 1. 🔧 **Task results with clickable paths** — built, awaiting Jake's rebuild + check on Windows.
-2. ⏳ **Chat titles** — auto-title after first exchange (local model), rename on double-click, pin.
+2. 🔧 **Chat titles** — coded and tested; awaiting Jake's Windows rebuild and live check.
 3. ⏳ **Health panel** — LM Studio model/context/VRAM, speech, OpenCode, ports, in Settings.
 4. ⏳ **Screen-aware questions** — "look at my screen" button using the computer-use MCP screenshot.
 5. ⏳ **Background model switching** — preload the new model while the old one serves; context-size setting in UI.
