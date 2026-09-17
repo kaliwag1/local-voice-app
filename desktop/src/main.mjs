@@ -55,12 +55,9 @@ import {
 import {
   DESKTOP_ORB_HEIGHT,
   DESKTOP_ORB_WIDTH,
-  DESKTOP_PANEL_HEIGHT,
-  DESKTOP_PANEL_WIDTH,
   desktopConversationPanelBounds,
   desktopOrbAnchorFromPanel,
   desktopOrbBounds,
-  desktopResizedPanelBounds,
   desktopSurfaceLayout,
 } from './desktop-surface-layout.mjs'
 import { createOrbPlacement } from './orb-placement.mjs'
@@ -192,13 +189,6 @@ let desktopTaskCount = 0
 let desktopTaskPlacement = 'below'
 let desktopOrbOffsetX = 0
 let desktopSurfaceMode = 'orb'
-const savedPanelSize = desktopSettingsStore.loadUiState().conversationPanelSize
-let desktopPanelSize = {
-  width: Number.isInteger(savedPanelSize?.width) && savedPanelSize.width > 0
-    ? savedPanelSize.width : DESKTOP_PANEL_WIDTH,
-  height: Number.isInteger(savedPanelSize?.height) && savedPanelSize.height > 0
-    ? savedPanelSize.height : DESKTOP_PANEL_HEIGHT,
-}
 let reconnectTimer = null
 let embeddedGateway = null
 let borrowedGatewayOrigin = ''
@@ -800,7 +790,6 @@ function setDesktopSurfaceMode(requestedMode) {
     mainWindow.setBounds(desktopConversationPanelBounds({
       orbBounds,
       workArea,
-      ...desktopPanelSize,
     }), false)
     mainWindow.show()
     mainWindow.focus()
@@ -866,28 +855,6 @@ function updateDesktopTaskSurface(value) {
     mainWindow.setBounds(next, false)
   }
 }
-
-ipcMain.handle('qwen-audio-agent:panel-resize-start', event => {
-  if (!mainWindow || event.sender !== mainWindow.webContents || desktopSurfaceMode !== 'panel') return null
-  return mainWindow.getBounds()
-})
-
-ipcMain.on('qwen-audio-agent:panel-resize', (event, size) => {
-  if (!mainWindow || event.sender !== mainWindow.webContents || desktopSurfaceMode !== 'panel') return
-  if (!Number.isFinite(size?.width) || !Number.isFinite(size?.height)) return
-  const bounds = mainWindow.getBounds()
-  const workArea = screen.getDisplayMatching(bounds).workArea
-  const next = desktopResizedPanelBounds({ bounds, workArea, ...size })
-  if (next.x !== bounds.x || next.width !== bounds.width || next.height !== bounds.height) {
-    mainWindow.setBounds(next, false)
-  }
-  desktopPanelSize = { width: next.width, height: next.height }
-})
-
-ipcMain.on('qwen-audio-agent:panel-resize-end', event => {
-  if (!mainWindow || event.sender !== mainWindow.webContents || desktopSurfaceMode !== 'panel') return
-  desktopSettingsStore.saveUiState({ conversationPanelSize: desktopPanelSize })
-})
 
 ipcMain.on('qwen-audio-agent:task-card-count', (event, value) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) return
