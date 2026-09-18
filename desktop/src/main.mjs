@@ -1375,6 +1375,7 @@ ipcMain.handle('qwen-audio-agent:health-diagnostics', event => {
     const settings = desktopSettingsStore.load()
     healthCheckInFlight = Promise.all([
       collectHealthDiagnostics({
+        selectionFile: process.env.QWEN_AUDIO_LOCAL_VOICE_ROOT ? resolve(process.env.QWEN_AUDIO_LOCAL_VOICE_ROOT, '.selected-voice-model') : '',
         lmUrl: process.env.QWEN_AUDIO_LOCAL_LLM_BASE_URL || 'http://127.0.0.1:1234/v1',
         speechUrl: settings.speechToSpeechRealtimeUrl || 'ws://127.0.0.1:8765/v1/realtime',
         gatewayUrl: appOrigin,

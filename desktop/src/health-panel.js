@@ -45,7 +45,7 @@ export function installHealthPanel(bridge) {
         : speechListening === true ? 'Port listening; no active voice connection reported'
           : speechListening === false ? 'Not connected' : 'Status unavailable'
     results.replaceChildren(
-      card('LM Studio', modelRows),
+      card(data.modelProvider || 'LM Studio', modelRows),
       card('GPU memory', gpuRows),
       card('Services', [
         ['Gateway', runtime ? runtime.gatewayConnected ? 'Connected' : 'Not connected' : 'Status unavailable'],

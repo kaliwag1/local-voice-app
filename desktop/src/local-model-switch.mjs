@@ -5,6 +5,8 @@ import path, { join, resolve } from 'node:path'
 import net from 'node:net'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
+import { bonsaiPaths, createBonsaiRuntime, withBonsai } from './bonsai-runtime.mjs'
+import { isBonsai, localModelRoute } from '../../shared/local-model-route.mjs'
 
 const execFileAsync = promisify(execFile)
 const SPEECH_PORT = 8765
@@ -51,6 +53,7 @@ function defaultPaths(env = process.env, root = env.QWEN_AUDIO_LOCAL_VOICE_ROOT
     voice: join(root, '.selected-voice'),
     voicesDir: join(root, 'voices'),
     workdir: root,
+    bonsai: bonsaiPaths(home, root),
   }
 }
 
@@ -85,7 +88,7 @@ async function waitForPort(port, expected, timeoutMs = 30_000) {
 // Inspect the actual listener before killing anything. A port alone does not
 // establish ownership; another app may have started a speech service there.
 async function speechListener() {
-  const script = `$listener = Get-NetTCPConnection -LocalAddress '127.0.0.1' -LocalPort ${SPEECH_PORT} -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if ($listener) { $p = Get-CimInstance Win32_Process -Filter "ProcessId = $($listener.OwningProcess)"; if ($p) { [pscustomobject]@{ pid = $p.ProcessId; commandLine = $p.CommandLine; executablePath = $p.ExecutablePath } | ConvertTo-Json -Compress } }`
+  const script = `$listener = Get-NetTCPConnection -LocalAddress '127.0.0.1' -LocalPort ${SPEECH_PORT} -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if ($listener) { $p = Get-CimInstance Win32_Process -Filter "ProcessId = $($listener.OwningProcess)"; if ($p) { [pscustomobject]@{ pid = $p.ProcessId; commandLine = $p.CommandLine; executablePath = $p.ExecutablePath } | ConvertTo-Json -Compress } }; exit 0`
   const output = await command('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script])
   return output ? parseJson(output, 'Speech service listener info') : null
 }
@@ -122,10 +125,11 @@ function ownsSpeech(listener, expectedPath) {
 
 // Mirror of the argument list in Start My Voice App.ps1 — keep both in step.
 function speechArguments(modelKey, voice) {
+  const route = localModelRoute(modelKey)
   return [
     'serve', '--device', 'cpu', '--stt', 'parakeet-tdt',
-    '--llm_backend', 'chat-completions', '--model_name', modelKey,
-    '--responses_api_base_url', 'http://127.0.0.1:1234/v1',
+    '--llm_backend', 'chat-completions', '--model_name', route.model,
+    '--responses_api_base_url', route.baseUrl,
     '--responses_api_api_key', 'lm-studio', '--tts', 'pocket',
     ...(voice ? ['--pocket_tts_voice', voice] : []),
     '--no_smart_turn',
@@ -150,6 +154,16 @@ async function replaceFile(path, content) {
 
 function updateOpenCodeConfig(content, model) {
   const config = parseJson(content, 'OpenCode config')
+  if (isBonsai(model.modelKey)) {
+    config.provider ||= {}
+    config.provider.bonsai = {
+      npm: '@ai-sdk/openai-compatible', name: 'Bonsai (local Prism)',
+      options: { baseURL: localModelRoute(model.modelKey).baseUrl },
+      models: { bonsai: { name: model.displayName } },
+    }
+    config.model = 'bonsai/bonsai'
+    return `${JSON.stringify(config, null, 2)}\n`
+  }
   if (!config.provider?.lmstudio?.models || typeof config.provider.lmstudio.models !== 'object') {
     throw new Error('OpenCode is not configured for LM Studio.')
   }
@@ -217,6 +231,7 @@ export function createLocalModelSwitcher({
   gateway = { ownership: () => 'unavailable', stop: async () => {}, start: async () => {}, resetBackendSessions: async () => {} },
   onProgress = () => {},
 } = {}) {
+  if (paths.bonsai) lms = withBonsai(lms, createBonsaiRuntime({ paths: paths.bonsai }))
   let pending = false
 
   function progress(event) {
@@ -292,7 +307,7 @@ export function createLocalModelSwitcher({
       const models = parseModels(await lms('ls', '--llm', '--json'))
       const { selectedModelKey: previousKey } = await list()
       const chosen = models.find(model => model.modelKey === modelKey)
-      if (!chosen) return { ok: false, selectedModelKey: previousKey, error: 'Choose an installed LM Studio model.' }
+      if (!chosen) return { ok: false, selectedModelKey: previousKey, error: 'Choose an installed local model.' }
       if (chosen.modelKey === previousKey) return { ok: true, selectedModelKey: previousKey }
       const ownership = gateway.ownership()
       if (ownership !== 'owned') {
@@ -311,7 +326,7 @@ export function createLocalModelSwitcher({
       const loaded = await loadedModels()
       const oldLoaded = loaded.find(item => item.modelKey === previousKey)
       const chosenAlreadyLoaded = loaded.some(item => item.modelKey === chosen.modelKey)
-      const preload = !chosenAlreadyLoaded && (!oldLoaded || canPreload({
+      const preload = !isBonsai(previousKey) && !isBonsai(chosen.modelKey) && !chosenAlreadyLoaded && (!oldLoaded || canPreload({
         sizeBytes: chosen.sizeBytes, freeBytes: await gpuMemory(), contextLength: length,
       }))
       const mode = chosenAlreadyLoaded ? 'already-loaded' : preload ? 'background' : 'sequential'

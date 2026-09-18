@@ -38,6 +38,17 @@ list in `shared/permission-rule-patterns.mjs`. To make everything ask again, rem
 5. `Get-NetTCPConnection -LocalPort 3101,4096,8765,1234 -State Listen` to see what is up.
 
 ## Model switching
+
+**Bonsai:** choose **Bonsai 2 Official PQ2 (Prism)** or **Bonsai 2 CRACK PQ2 (Prism)** in the same
+picker after rebuilding. Keep the existing runtime at `Documents\Codex\BonsaiRunner\llama-server.exe`
+and the GGUFs under `.lmstudio\models`; these files cannot be loaded by LM Studio itself.
+Start at 32k context (verified); larger contexts have not been tested. Close standalone Bonsai
+shortcuts first if they own port 8080. The app releases its previous selected model before loading
+Bonsai; unload any additional LM Studio models yourself when prompted. The app-owned server can
+remain warm after closing the app, is reused on restart, and is stopped when switching back.
+Startup log: parent `.voice-bonsai-runtime.json.log`. Do not delete the state file while running:
+it records ownership so another process on port 8080 is never killed by mistake.
+
 In-app picker → `desktop/src/local-model-switch.mjs`. Order: `lms load` the new model **while the
 old one keeps serving** (beside it if free VRAM allows — "background"; otherwise unload old first —
 "sequential"), then a short swap: stop gateway + speech, rewrite `opencode.json`, restart speech,

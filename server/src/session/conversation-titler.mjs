@@ -4,6 +4,7 @@
 // cooldown and a small retry limit so LM Studio startup is not fatal.
 import { readFile } from 'node:fs/promises'
 import { replaySession } from './session-replay.mjs'
+import { isBonsai, localModelRoute } from '../../../shared/local-model-route.mjs'
 
 const MAX_TITLE = 60
 const MAX_CONTEXT = 1200
@@ -78,13 +79,15 @@ export function createLocalTitleModelCall({
     throw new Error('chat titles require a local LM Studio URL')
   }
   return async ({ system, user }) => {
-    const model = await resolveLocalModel({ baseUrl: base, selectionFile, fetchImpl, readFileImpl })
+    const selected = await resolveLocalModel({ baseUrl: base, selectionFile, fetchImpl, readFileImpl })
+    const route = isBonsai(selected) ? localModelRoute(selected) : { model: selected, baseUrl: base }
+    const model = route.model
     if (!model) throw new Error('no local model available')
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
       // LM Studio's local server does not require credentials.
-      const response = await fetchImpl(`${base}/chat/completions`, {
+      const response = await fetchImpl(`${route.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

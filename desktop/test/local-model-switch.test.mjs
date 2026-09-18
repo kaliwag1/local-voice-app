@@ -21,6 +21,30 @@ const models = [
   { type: 'llm', modelKey: newKey, displayName: 'Other', sizeBytes: 4 * GiB },
 ]
 
+test('Bonsai switch is sequential and config and speech use Prism; failure restores LM Studio', async () => {
+  const key = 'bonsai/official'
+  models.push({ type: 'llm', modelKey: key, displayName: 'Bonsai Official', sizeBytes: null })
+  try {
+    const state = fixture({ freeVram: 100 * GiB })
+    const result = await state.controller.switchModel(key)
+    assert.equal(result.ok, true)
+    assert.equal(result.mode, 'sequential')
+    const config = JSON.parse(state.data.get('opencode.json'))
+    assert.equal(config.model, 'bonsai/bonsai')
+    assert.equal(config.provider.bonsai.options.baseURL, 'http://127.0.0.1:8080/v1')
+    assert.ok(config.provider.lmstudio.models[oldKey])
+    const args = speechArguments(key, 'cosette')
+    assert.equal(args[args.indexOf('--model_name') + 1], 'bonsai')
+    assert.equal(args[args.indexOf('--responses_api_base_url') + 1], 'http://127.0.0.1:8080/v1')
+    assert.equal((await state.controller.switchModel(oldKey)).mode, 'sequential')
+    assert.equal(JSON.parse(state.data.get('opencode.json')).model, `lmstudio/${oldKey}`)
+    const failing = fixture({ failAt: 'startSpeech' })
+    assert.equal((await failing.controller.switchModel(key)).ok, false)
+    assert.equal(failing.loaded, oldKey)
+    assert.equal(JSON.parse(failing.data.get('opencode.json')).model, `lmstudio/${oldKey}`)
+  } finally { models.pop() }
+})
+
 // Default: 4 GiB model, 8 GiB free → fits beside the old one (background mode).
 function fixture({ failAt = '', ownership = 'owned', freeVram = 8 * GiB, voiceFiles = ['jake.wav', 'notes.txt'] } = {}) {
   const paths = {

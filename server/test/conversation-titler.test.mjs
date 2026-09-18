@@ -85,3 +85,12 @@ test('title calls remain on loopback and use the selected local model', async ()
   assert.equal(JSON.parse(calls[0].options.body).model, 'google/gemma-4-26b-a4b-qat')
   assert.equal(sanitizeTitle('Title: A brief chat\nExplanation'), 'A brief chat')
 })
+
+test('Bonsai titles use the Prism endpoint and serving alias', async () => {
+  let request
+  const call = createLocalTitleModelCall({ selectionFile: 'selection', readFileImpl: async () => 'bonsai/crack',
+    fetchImpl: async (url, options) => { request = { url, body: JSON.parse(options.body) }; return { ok: true, json: async () => ({ choices: [] }) } } })
+  await call({ system: 'title', user: 'hello' })
+  assert.equal(request.url, 'http://127.0.0.1:8080/v1/chat/completions')
+  assert.equal(request.body.model, 'bonsai')
+})

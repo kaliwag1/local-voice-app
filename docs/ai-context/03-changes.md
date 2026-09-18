@@ -2,6 +2,28 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-18 — Bonsai Official / CRACK via local Prism runtime (Codex)
+- Both downloaded PQ2 variants appear in the existing model picker as `bonsai/official`
+  and `bonsai/crack`. Incompatible LM Studio entries for these quantizations are filtered.
+- `desktop/src/bonsai-runtime.mjs` manages the existing `Documents/Codex/BonsaiRunner/llama-server.exe`
+  on localhost:8080, alias `bonsai`, Jinja tool templates, one slot, hidden process and startup log.
+  PID, executable and model must match its state record before shutdown. Foreign listeners are
+  left alone and produce a clear startup error. Repeat starts reuse a healthy matching server.
+- Switching uses the existing rollback transaction and is always sequential when Bonsai is
+  involved. Other loaded LM Studio models cause an explicit error rather than overloading VRAM.
+  The existing context picker reloads Prism; 32k was verified on Jake's RTX 5070 Ti.
+- Speech, OpenCode, automatic titles and Health use the active provider. LM Studio configuration
+  is preserved; OpenCode gets a separate `bonsai` provider. Saved Bonsai choices are understood
+  by the parent launcher (separate repository). Runtime state/logs live alongside that launcher.
+- Validation: 35 focused tests pass (switch/rollback, runtime ownership/port conflicts, health,
+  titles). Web production build and separate Windows packaging (`dist/bonsai-validation`) pass.
+  The validation package was not launched or installed. Live Windows API tests passed for BOTH variants at 32768:
+  chat completion, structured function call, repeated start reuse, sequential unload/start/stop.
+- Not yet verified: rebuilt desktop picker-to-voice/OpenCode flow and shortcut cold start with
+  a persisted Bonsai selection. No installed app deployment or push was performed. Jake should
+  rebuild with `Rebuild My Voice App.cmd`, then test Official → CRACK → Qwen and a cold restart.
+- Pre-existing `package-lock.json` and parent `.selected-voice-model` edits were preserved.
+
 ## 2026-09-17 — Settings sheet, Claude-style chat, push-to-talk (Claude)
 - **Settings floats over the panel.** `createSettingsOverlayWindow` in `main.mjs`: frameless
   transparent child window tracking the panel's bounds, `settings.html?overlay=1`. No acrylic

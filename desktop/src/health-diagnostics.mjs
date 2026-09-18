@@ -1,6 +1,8 @@
 import { createConnection } from 'node:net'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { readFile } from 'node:fs/promises'
+import { isBonsai, localModelRoute } from '../../shared/local-model-route.mjs'
 
 const runFile = promisify(execFile)
 
@@ -69,9 +71,16 @@ export async function collectHealthDiagnostics({
   fetchImpl = fetch,
   probe = probePort,
   run = runFile,
+  selectionFile = '',
+  read = readFile,
 } = {}) {
+  let selection = ''
+  if (selectionFile) { try { selection = (await read(selectionFile, 'utf8')).trim() } catch { /* optional */ } }
+  const bonsai = isBonsai(selection)
+  if (bonsai) lmUrl = localModelRoute(selection).baseUrl
+  const modelProvider = bonsai ? 'Bonsai (Prism)' : 'LM Studio'
   const services = await Promise.all(Object.entries({
-    'LM Studio': lmUrl, Speech: speechUrl, Gateway: gatewayUrl, OpenCode: openCodeUrl,
+    [modelProvider]: lmUrl, Speech: speechUrl, Gateway: gatewayUrl, OpenCode: openCodeUrl,
   }).map(async ([name, address]) => {
     try { return { name, ...await probe(localEndpoint(address)) } }
     catch (error) { return { name, listening: null, error: error.message } }
@@ -87,11 +96,20 @@ export async function collectHealthDiagnostics({
       try {
         localEndpoint(lmUrl)
         const origin = new URL(lmUrl).origin
+        if (bonsai) {
+          const payload = await json(`${lmUrl}/models`)
+          let props = {}
+          try { props = await json(`${origin}/props`) } catch { /* optional context details */ }
+          return { available: true, loaded: (payload.data || []).map(model => ({
+            id: model.id, name: selection === 'bonsai/crack' ? 'Bonsai 2 CRACK PQ2' : 'Bonsai 2 Official PQ2',
+            context: props.default_generation_settings?.n_ctx ?? null, maximumContext: null,
+          })) }
+        }
         let payload
         try { payload = await json(`${origin}/api/v1/models`) }
         catch { payload = await json(`${origin}/api/v0/models`) }
         return { available: true, loaded: loadedModels(payload) }
-      } catch { return { available: false, loaded: [], error: 'LM Studio model details unavailable. Check that its local server is running.' } }
+      } catch { return { available: false, loaded: [], error: `${modelProvider} model details unavailable. Check that its local server is running.` } }
     })(),
     (async () => {
       try {
@@ -109,5 +127,5 @@ export async function collectHealthDiagnostics({
       } catch { return { healthy: null, version: '' } }
     })(),
   ])
-  return { checkedAt: new Date().toISOString(), services, models, gpu, openCode }
+  return { checkedAt: new Date().toISOString(), services, models, gpu, openCode, modelProvider }
 }

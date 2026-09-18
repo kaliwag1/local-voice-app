@@ -2,6 +2,19 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { collectHealthDiagnostics, loadedModels, parseGpuMemory, localEndpoint } from '../src/health-diagnostics.mjs'
 
+test('Bonsai health checks the selected Prism service and its actual context', async () => {
+  const snapshot = await collectHealthDiagnostics({ selectionFile: 'selected', read: async () => 'bonsai/crack',
+    probe: async target => ({ ...target, listening: true }), run: async () => ({ stdout: 'RTX, 16384, 8192, 8192' }),
+    fetchImpl: async url => ({ ok: true, json: async () => url.endsWith('/props')
+      ? { default_generation_settings: { n_ctx: 32768 } }
+      : url.endsWith('/models') ? { data: [{ id: 'bonsai' }] } : { healthy: true } }),
+  })
+  assert.equal(snapshot.modelProvider, 'Bonsai (Prism)')
+  assert.equal(snapshot.services[0].port, 8080)
+  assert.equal(snapshot.models.loaded[0].context, 32768)
+  assert.equal(snapshot.models.loaded[0].name, 'Bonsai 2 CRACK PQ2')
+})
+
 test('loaded context is distinct from the model maximum and unloaded models are excluded', () => {
   assert.deepEqual(loadedModels({ models: [
     { key: 'gemma', type: 'llm', max_context_length: 131072, loaded_instances: [{ id: 'active', config: { context_length: 32768 } }] },
