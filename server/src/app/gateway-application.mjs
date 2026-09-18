@@ -875,7 +875,8 @@ app.get('/api/conversations/:sessionId/messages', async (req, res, next) => {
     const messages = await runtimeCommands.history({
       session_id: req.params.sessionId,
     }, { ownerId: req.identity.ownerId })
-    res.json({ messages })
+    const records = await sessionJournalRuntime.read(req.identity.ownerId, req.params.sessionId)
+    res.json({ messages, activities: replaySession(records).activities })
   } catch (error) {
     next(error)
   }
@@ -1033,6 +1034,9 @@ const backendAvailability = new BackendAvailability({
 })
 backendAvailability.refresh()
 realtimeGateway = attachRealtimeGateway(server, {
+  recordTurnActivity: ({ ownerId, sessionId, activity }) => sessionJournalRuntime.append({
+    ownerId, sessionId, event: { type: 'qwaudio/turn/activity', turnId: activity.turnId, source: 'realtime-activity', payload: activity },
+  }),
   identityManager: gatewayAccessRuntime,
   memoryService: frontendMemoryRuntime,
   sessionDigests,

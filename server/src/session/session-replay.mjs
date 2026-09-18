@@ -11,7 +11,9 @@ export function replaySession(records, { sessionId } = {}) {
   const messageIndexes = new Map()
   const tasks = new Map()
   const deliveries = []
+  const activities = new Map()
   for (const event of events) {
+    if (event.type === 'qwaudio/turn/activity' && event.turnId) activities.set(event.turnId, event.payload)
     if (event.type === 'user/message' || event.type === 'assistant/message') {
       const messageId = String(event.payload?.messageId || '')
       const message = {
@@ -50,5 +52,6 @@ export function replaySession(records, { sessionId } = {}) {
     messages,
     tasks: [...tasks.values()],
     deliveries,
+    activities: [...activities.values()].slice(-100),
   }
 }

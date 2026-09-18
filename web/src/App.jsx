@@ -14,6 +14,8 @@ import {
   upsertUserTranscript,
 } from './message-order.js'
 import MessageContent from './MessageContent.jsx'
+import TurnActivity from './TurnActivity.jsx'
+import { mergeTurnActivities } from './turn-activity.js'
 import MultimodalComposer from './composer/MultimodalComposer.jsx'
 import TaskArtifacts from './TaskArtifacts.jsx'
 import PermissionActions from './PermissionActions.jsx'
@@ -244,6 +246,7 @@ export default function App() {
   const [pushToTalkDown, setPushToTalkDown] = useState(false)
   const [waitingForVoice, setWaitingForVoice] = useState(false)
   const [messages, setMessages] = useState([])
+  const [turnActivities, setTurnActivities] = useState({})
   const [activity, setActivity] = useState(t('正在检查后台 Agent'))
   const [frontend, setFrontend] = useState({ label: 'Realtime Agent' })
   const [modelStatus, setModelStatus] = useState(() => realtimeModelStatus())
@@ -603,6 +606,7 @@ export default function App() {
 
   const onRealtimeEvent = useCallback(event => {
     if (sessionIdRef.current !== sessionId) return
+    if (event.type === 'turn.activity') setTurnActivities(items => mergeTurnActivities(items, [event.activity], true))
     const animationEvent = spriteAnimationEventForGatewayEvent(event)
     if (animationEvent) {
       triggerSpriteAnimation(animationEvent)
@@ -979,6 +983,7 @@ export default function App() {
     ]).then(([history, taskResult]) => {
       if (cancelled) return
       setMessages(items => mergeConversationHistory(items, history.messages || []))
+      setTurnActivities(items => mergeTurnActivities(items, history.activities || []))
       setAgentTasks(items => {
         const known = new Set(items.map(task => task.id))
         return [
@@ -990,7 +995,7 @@ export default function App() {
       })
     }).catch(() => {})
     return () => { cancelled = true }
-  }, [sessionId])
+  }, [sessionId, voice.connectionState])
   const lifecycleTransition = (
     desktopOrbMode && desktopLifecycle !== 'active'
   )
@@ -1206,6 +1211,7 @@ export default function App() {
     sessionIdRef.current = next
     setSessionId(next)
     setMessages([])
+    setTurnActivities({})
     setAgentTasks([])
     currentTurnId.current = ''
     activeVoiceResponse.current = ''
@@ -2216,6 +2222,7 @@ export default function App() {
           {turn.beforeActivities.map(renderMessage)}
           {turn.tasks.map(renderTask)}
           {turn.afterActivities.map(renderMessage)}
+          <TurnActivity activity={turnActivities[turn.id]} />
         </section>)}
       </div>
 

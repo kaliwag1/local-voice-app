@@ -15,6 +15,9 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
   across chats, wake word / hotkey quick-ask, meeting recorder.
 
 ## Agreed next (in this order)
+0. ✅ **Turn activity / tokens / model thinking** — compact per-turn panel, persisted
+   history and explicit no-answer status. Real CRACK reasoning/tokens verified through
+   the maintained local speech adapter. See 03-changes for scope and validation.
 0. ✅ **Bonsai Official / CRACK PQ2** — installed via supported rebuild; live picker switches,
    saved Official cold start, and desktop replies/TTS playback on both variants verified.
    36 focused tests and live chat/tool API tests pass. Physical microphone input and full

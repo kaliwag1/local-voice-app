@@ -131,6 +131,7 @@ function speechArguments(modelKey, voice) {
     '--llm_backend', 'chat-completions', '--model_name', route.model,
     '--responses_api_base_url', route.baseUrl,
     '--responses_api_api_key', 'lm-studio', '--tts', 'pocket',
+    '--responses_api_disable_thinking', 'false',
     ...(voice ? ['--pocket_tts_voice', voice] : []),
     '--no_smart_turn',
   ]
@@ -147,7 +148,12 @@ function launchSpeech(file, modelKey, workdir, voice) {
 export function speechEnvironment(workdir, env = process.env) {
   // Keep tokenizer files outside Windows Store/Codex's redirected AppData.
   const paths = /^[a-z]:\\/i.test(workdir) ? path.win32 : path
-  return { ...env, NLTK_DATA: [paths.join(workdir, 'nltk_data'), env.NLTK_DATA].filter(Boolean).join(paths.delimiter) }
+  return {
+    ...env,
+    NLTK_DATA: [paths.join(workdir, 'nltk_data'), env.NLTK_DATA].filter(Boolean).join(paths.delimiter),
+    ZD_VOICE_REASONING_ADAPTER: '1',
+    PYTHONPATH: [paths.join(workdir, 'qwen-audio-agent-editable', 'scripts', 'runtime', 'speech-adapter'), env.PYTHONPATH].filter(Boolean).join(paths.delimiter),
+  }
 }
 
 async function replaceFile(path, content) {

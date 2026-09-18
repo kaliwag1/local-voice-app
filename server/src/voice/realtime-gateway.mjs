@@ -27,6 +27,7 @@ import { TaskDomainEvent } from '../task/task-events.mjs'
 import { recordTaskResult } from '../conversation/task-result-projector.mjs'
 import { projectGatewayTaskEvent } from '../transport/gateway-task-event-projector.mjs'
 import { ToolCallHandler } from '../frontend/tools/tool-call-handler.mjs'
+import { TurnActivity } from './turn-activity.mjs'
 import { buildFrontendToolContext } from '../frontend/tools/frontend-tool-context.mjs'
 import { TurnTranscripts } from '../frontend/tools/turn-transcripts.mjs'
 import { TurnCitations } from './turn-citations.mjs'
@@ -180,6 +181,7 @@ export function attachRealtimeGateway(server, {
   inputArbitration = null,
   taskManager = new TaskManager(),
   conversationSync = defaultConversationSync,
+  recordTurnActivity = () => {},
   config = defaultConfig,
   logger = defaultLogger,
   realtimeProviderRegistry = defaultRealtimeProviderRegistry,
@@ -307,6 +309,11 @@ export function attachRealtimeGateway(server, {
       sessionId,
     })
     connectionLogger.info('voice_client.connected')
+    const turnActivity = new TurnActivity({ emit: activity => {
+      send(ws, { type: GatewayServerEvent.TURN_ACTIVITY, activity })
+      Promise.resolve(recordTurnActivity({ ownerId, sessionId, activity }))
+        .catch(() => connectionLogger.warn('turn_activity.persist_failed'))
+    } })
     let inputEnabled = false
     let outputEnabled = false
     // Set only by host arbitration. Unlike inputEnabled (which the client
@@ -815,6 +822,7 @@ export function attachRealtimeGateway(server, {
         })
       },
       onToolCallDebug: event => {
+        turnActivity.tool(event)
         const { startedAt: _startedAt, ...publicEvent } = event || {}
         send(ws, {
           type: GatewayServerEvent.TOOL_CALL,
@@ -875,6 +883,7 @@ export function attachRealtimeGateway(server, {
       responseStartWatchdog = setTimeout(() => {
         if (responseTurnCandidate !== context) return
         clearResponseCandidate()
+        turnActivity.fail(context.turnId)
         send(ws, {
           type: 'error',
           message: '实时模型没有开始回复，语音连接已自动恢复，请再说一次。',
@@ -903,7 +912,10 @@ export function attachRealtimeGateway(server, {
       conversationSync,
       announcementWindow,
       announcements,
-      send: event => send(ws, event),
+      send: event => {
+        if (event.type === GatewayServerEvent.TURN_STARTED) turnActivity.start(event.turnId)
+        send(ws, event)
+      },
       getFrontend: () => realtimeSession.frontend,
       ensureFrontend: () => realtimeSession.ensure(),
       clearResponseCandidate,
@@ -922,6 +934,7 @@ export function attachRealtimeGateway(server, {
     })
 
     const presentationRuntime = new RealtimePresentationRuntime({
+      onResponseDone: (...args) => turnActivity.done(...args),
       ownerId,
       sessionId,
       turns,
@@ -1072,6 +1085,7 @@ export function attachRealtimeGateway(server, {
     const handleEvent = event => {
       if (isSleepActivityEvent(event)) sleepController?.recordActivity()
       if (isResponseActivityEvent(event)) presentationRuntime.begin(event)
+      turnActivity.handle(event, presentationRuntime.get(realtimeResponseId(event)) || {})
       if (inputs.handleProviderEvent(event)) return
       if (event.type === 'response.done') {
         const responseId = realtimeResponseId(event)
@@ -1139,6 +1153,7 @@ export function attachRealtimeGateway(server, {
         // 也不应触发失败簿记(此时本就没有响应在跑)。
         const benignCancelRace = providerError === 'no_active_response'
         if (benignCancelRace) return
+        turnActivity.fail(presentationRuntime.get(realtimeResponseId(event))?.turnId || turns.committedTurnId || turns.turnId)
         if (providerError === 'content_safety') {
           const recentMessages = conversationSync.frontendContext({ ownerId, sessionId })
           const failedContext = presentationRuntime.get(realtimeResponseId(event)) || {
@@ -1752,6 +1767,7 @@ export function attachRealtimeGateway(server, {
         sleepController.recordActivity()
         inputs.submit(event)
       } else if (event.type === GatewayClientEvent.INTERRUPT) {
+        turnActivity.interrupt()
         sleepController.recordActivity()
         turns.advanceBoundary()
         announcementWindow.interrupt()
@@ -1845,6 +1861,7 @@ export function attachRealtimeGateway(server, {
       unsubscribeMemory()
       clearResponseCandidate()
       turns.close()
+      turnActivity.close()
       transcripts.close()
       turnCitations.clear()
       announcementWindow.reset()

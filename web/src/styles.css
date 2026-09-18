@@ -2100,3 +2100,13 @@ article.user .message-body .inline-code { background: var(--fill-hover); color: 
 }
 
 .task-files button:hover { background: var(--accent-soft-hover); }
+:root { --turn-activity-muted: var(--text-3, #92929d); }
+.turn-activity { margin: 6px 0 12px; color: var(--turn-activity-muted); font-size: 12px; }
+.turn-activity > summary { cursor: pointer; padding: 5px 0; overflow-wrap: anywhere; }
+.turn-activity-failed > summary, .turn-activity-no-answer > summary { color: var(--warning, #d6aa60); }
+.turn-activity-body { padding: 8px 12px; background: var(--surface-2, #16161f); border-radius: var(--radius-sm, 8px); }
+.turn-activity-body p { margin: 5px 0; }
+.turn-activity-body ul { padding-left: 18px; margin: 6px 0; }
+.turn-activity-body small { display: block; font-size: 11px; }
+.turn-thinking { margin-top: 8px; }
+.turn-thinking pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; font: inherit; }

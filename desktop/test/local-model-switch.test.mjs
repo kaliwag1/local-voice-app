@@ -21,6 +21,8 @@ test('speech tokenizer uses app-local data ahead of any existing data path', () 
   const env = speechEnvironment('C:\\voice', { NLTK_DATA: 'D:\\old', KEEP: 'yes' })
   assert.equal(env.NLTK_DATA, 'C:\\voice\\nltk_data;D:\\old')
   assert.equal(env.KEEP, 'yes')
+  assert.equal(env.ZD_VOICE_REASONING_ADAPTER, '1')
+  assert.equal(env.PYTHONPATH, 'C:\\voice\\qwen-audio-agent-editable\\scripts\\runtime\\speech-adapter')
 })
 const models = [
   { type: 'llm', modelKey: oldKey, displayName: 'Gemma', sizeBytes: 14 * GiB },
@@ -164,6 +166,7 @@ test('voice parsing and speech arguments', () => {
   const args = speechArguments('m', 'alba')
   assert.equal(args[args.indexOf('--pocket_tts_voice') + 1], 'alba')
   assert.equal(args.at(-1), '--no_smart_turn')
+  assert.equal(args[args.indexOf('--responses_api_disable_thinking') + 1], 'false')
   assert.ok(!speechArguments('m', null).includes('--pocket_tts_voice'))
 })
 

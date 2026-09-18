@@ -2,6 +2,41 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-18 — per-turn activity, tokens and real local reasoning (Codex)
+- Compact expandable status below each new turn: live frontend tool names/counts,
+  repeated calls, running/completed/failed status, actual reported prompt/completion/
+  total tokens, and explicit no-answer/interrupted/failed or stalled states. Raw
+  tool arguments/results are not shown. Existing permission checks are unchanged.
+- `TurnActivity` observes realtime events and tool debug notifications; saves bounded
+  activity snapshots separately from model conversation messages. History returns the
+  latest snapshot per turn (last 100); changing chats/restarting restores them.
+  Tool continuations have `origin: agent`, and must be counted alongside `model`:
+  a real search exposed that distinction; regression test now covers it. System
+  permission/announcement speech is excluded. Counts are frontend model usage only,
+  not a context-window meter or OpenCode backend token totals. Missing/placeholder
+  usage remains unavailable. A 60-second stall is reported honestly, not as success.
+- `scripts/runtime/speech-adapter` is an app-owned, version/source-hash checked
+  extension for the installed Hugging Face speech-to-speech 1.0.0. No site-packages
+  edits. Explicit Chat Completions reasoning fields use separate response-keyed
+  realtime events through existing cancellation/stale-output gates. Thinking is
+  never sent to TTS or inserted into model history; UI stores at most 24,000 characters
+  and defaults to collapsed. Unclaimed speculative reasoning is dropped. Unsupported
+  runtimes continue normal speech with an unavailable diagnostic. See adapter README.
+- Both the in-app speech spawn and parent launcher opt into the adapter and stop
+  explicitly disabling native model thinking. This can increase latency/token use.
+  Providers that emit no separate reasoning still show unavailable; nothing is inferred
+  from answer text. Same adapter path supports both Bonsai variants and LM Studio.
+- Validation: 67 focused JS tests, 21 gateway application tests, 5 Python adapter tests;
+  supported Windows rebuild succeeded. Real CRACK desktop arithmetic returned 513,
+  displayed actual thinking separately, and showed prompt 4285 / completion 130 /
+  total 4415. Token/thinking history survived restart. Final deployed CRACK web-search
+  test showed `web_search x1 completed`, final answer, and total 9373 tokens across
+  both responses (prompt 9208 / completion 165), with real model thinking retained.
+  Ten-search terminal loop,
+  no-answer, interruption, deduplication and unavailable usage tested synthetically;
+  no harmful prompt was rerun. No remote push. Pre-existing package-lock.json and
+  saved model choice preserved.
+
 ## 2026-09-18 — Bonsai Official / CRACK via local Prism runtime (Codex)
 - Follow-up deployment: rebuilt the installed `dist/desktop-panel` through the supported script.
   Live picker showed both variants and switched Qwen → Official. The first desktop reply exposed

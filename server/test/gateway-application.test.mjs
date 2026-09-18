@@ -685,6 +685,7 @@ test('serves the bounded conversation projection without exposing journal record
   )
   assert.equal(response.status, 200)
   assert.deepEqual(await response.json(), {
+    activities: [],
     messages: [{
       id: 'message-1',
       role: 'user',

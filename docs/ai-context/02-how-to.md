@@ -28,6 +28,17 @@ list in `shared/permission-rule-patterns.mjs`. To make everything ask again, rem
 `realtime-voice-chat\Push To GitHub.cmd`. Refresh the config copies with `Update Config Snapshot.cmd`.
 
 ## Diagnose
+
+**Chat activity:** expand the compact status below a new turn for frontend tool
+names/counts, completion/failure/no-answer status, reported tokens and any emitted
+model thinking. Thinking is nested/collapsed, never spoken. Tokens are cumulative
+provider-reported usage for the voice model's responses in that turn, not current
+context occupancy, a live estimate, or OpenCode backend usage. Old turns cannot be
+backfilled. The local reasoning adapter lives in `scripts/runtime/speech-adapter`;
+read its README before upgrading the speech dependency. Native thinking is enabled
+by the launcher and may make replies slower. Unsupported/missing reasoning is
+explicitly unavailable. Activity survives chat switching and restarts.
+
 0. **No speech audio but transcription works** (`realtime.response.done` with `hasAudio:false`, often after
    `session_limit_reached` in `gateway.log`): the speech service on 8765 outlived a killed app and is holding
    a dead session. Run `realtime-voice-chat\Restart Speech Service.cmd` (the Rebuild script now also kills it).

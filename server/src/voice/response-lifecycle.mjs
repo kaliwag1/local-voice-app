@@ -1,5 +1,8 @@
 const RESPONSE_ACTIVITY_TYPES = new Set([
   'response.created',
+  'response.reasoning.delta',
+  'response.reasoning_text.delta',
+  'response.reasoning_summary_text.delta',
   'response.activity',
   'response.done',
   'response.output_item.added',

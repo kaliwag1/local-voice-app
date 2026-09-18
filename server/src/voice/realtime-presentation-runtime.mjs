@@ -77,6 +77,7 @@ export class RealtimePresentationRuntime {
     announcementQuietMs,
     responseContextCleanupMs,
     turnCitations = null,
+    onResponseDone = () => {},
   }) {
     this.ownerId = ownerId
     this.sessionId = sessionId
@@ -94,6 +95,7 @@ export class RealtimePresentationRuntime {
     this.announcementQuietMs = announcementQuietMs
     this.responseContextCleanupMs = responseContextCleanupMs
     this.turnCitations = turnCitations
+    this.onResponseDone = onResponseDone
     this.contexts = new Map()
     this.playbackTurns = new Map()
     this.lastCorrectionTurn = null
@@ -353,6 +355,9 @@ export class RealtimePresentationRuntime {
       && !suppressToolFollowUp,
     )
     if (context) context.awaitsToolFollowUp = toolFollowUpPending
+    this.onResponseDone(event, { ...context, turnId: responseTurnId }, {
+      pending: toolFollowUpPending, terminalTool: terminalToolResponse,
+    })
     this.toolCalls.finishToolResponse(id, {
       suppressResponse,
       sourceHasSpeech,
