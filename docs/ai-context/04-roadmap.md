@@ -15,6 +15,9 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
   across chats, wake word / hotkey quick-ask, meeting recorder.
 
 ## Agreed next (in this order)
+0. 🔧 **Bonsai VRAM released on quit** — coded and unit-tested; needs a rebuild and one
+   live check (quit the app, confirm `llama-server.exe` is gone and VRAM drops).
+   See 03-changes. Crash/force-kill still orphans the server by design.
 0. ✅ **Turn activity / tokens / model thinking** — compact per-turn panel, persisted
    history and explicit no-answer status. Real CRACK reasoning/tokens verified through
    the maintained local speech adapter. See 03-changes for scope and validation.

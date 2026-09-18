@@ -2,6 +2,31 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-18 — quitting releases the Bonsai server (Claude)
+- Quitting the app left `llama-server.exe` running: the Prism server is spawned detached
+  (so it can outlive the launcher that starts it) and no shutdown path ever closed it.
+  Observed live — app closed, PID 30436 still listening on 8080 holding ~9 GB of VRAM.
+- `before-quit` cleanup now calls `localModelSwitcher.stopLocalRuntime()` after the
+  renderer server and gateway are down, so nothing is mid-request when the weights go.
+  It reuses the existing `runtime.stop()`, which is a no-op unless the listener on 8080
+  is still the PID/exe/model recorded in `.voice-bonsai-runtime.json` — an LM Studio
+  server, or a standalone Bonsai someone else started, is never killed.
+- `createLocalModelSwitcher` takes the runtime as an injectable `bonsai` option instead
+  of building it inline, so the stop path is testable without a real server.
+- Bounded by `withDeadline` (new, in `graceful-shutdown.mjs`, 8 s): `stop()` polls for
+  10 s before throwing, and a server that will not release the port must not trap the
+  user in a half-closed app. A failure or timeout is logged as
+  `desktop.local_runtime_stop_failed` and the quit continues.
+- Only covers a clean quit. Closing to tray deliberately keeps the model warm, and a
+  crash or force-kill still orphans the server — the launcher's `stop unused` covers the
+  next start when a non-Bonsai model is selected, and `start()` reuses a healthy matching
+  server otherwise.
+- Validation: 289 focused desktop tests pass, including 3 new switcher tests (owned stop,
+  not-owned left alive, no runtime configured) and 2 new `withDeadline` tests. The 5
+  failures in `settings-config` / `backend-auth-status` are pre-existing — identical at
+  HEAD with these changes stashed. Not yet rebuilt into `dist/desktop-panel`, so the
+  installed app still has the old quit path. No remote push.
+
 ## 2026-09-18 — per-turn activity, tokens and real local reasoning (Codex)
 - Compact expandable status below each new turn: live frontend tool names/counts,
   repeated calls, running/completed/failed status, actual reported prompt/completion/

@@ -242,9 +242,10 @@ export function createLocalModelSwitcher({
     await waitForPort(SPEECH_PORT, true, 120_000)
   },
   gateway = { ownership: () => 'unavailable', stop: async () => {}, start: async () => {}, resetBackendSessions: async () => {} },
+  bonsai = paths.bonsai ? createBonsaiRuntime({ paths: paths.bonsai }) : null,
   onProgress = () => {},
 } = {}) {
-  if (paths.bonsai) lms = withBonsai(lms, createBonsaiRuntime({ paths: paths.bonsai }))
+  if (bonsai) lms = withBonsai(lms, bonsai)
   let pending = false
 
   function progress(event) {
@@ -506,7 +507,22 @@ export function createLocalModelSwitcher({
     }
   }
 
-  return { list, switchModel, setContextLength, setVoice }
+  // The Prism server is spawned detached so it outlives the launcher that starts
+  // it, and nothing else ever closes it: quitting would leave the weights in
+  // VRAM. stop() is a no-op unless the listener on port 8080 is still the
+  // process recorded in our own state file, so an LM Studio server, or a
+  // standalone Bonsai someone else started, is never touched.
+  async function stopLocalRuntime() {
+    if (!bonsai) return { ok: true }
+    try {
+      await bonsai.stop()
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, error: error.message }
+    }
+  }
+
+  return { list, switchModel, setContextLength, setVoice, stopLocalRuntime }
 }
 
 export { canPreload, defaultPaths, ownsSpeech, parseContextLength, parseModels, parseVoice, speechArguments, updateOpenCodeConfig }

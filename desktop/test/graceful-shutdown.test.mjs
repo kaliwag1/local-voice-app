@@ -1,12 +1,35 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createGracefulShutdown } from '../src/graceful-shutdown.mjs'
+import { createGracefulShutdown, withDeadline } from '../src/graceful-shutdown.mjs'
 
 function deferred() {
   let resolve
   const promise = new Promise(resolvePromise => { resolve = resolvePromise })
   return { promise, resolve }
 }
+
+test('a slow shutdown step gives up at its deadline instead of holding the quit', async () => {
+  const stuck = deferred()
+  let cleared = 0
+  const fired = []
+  const result = await withDeadline(stuck.promise, 8000, { ok: false, error: 'timed out' }, {
+    set: (run, ms) => { fired.push(ms); run(); return 'timer' },
+    clear: handle => { assert.equal(handle, 'timer'); cleared += 1 },
+  })
+  assert.deepEqual(result, { ok: false, error: 'timed out' })
+  assert.deepEqual(fired, [8000])
+  assert.equal(cleared, 1)
+})
+
+test('a step that finishes in time keeps its own result and cancels the timer', async () => {
+  let cleared = 0
+  const result = await withDeadline(Promise.resolve({ ok: true }), 8000, { ok: false }, {
+    set: () => 'timer',
+    clear: () => { cleared += 1 },
+  })
+  assert.deepEqual(result, { ok: true })
+  assert.equal(cleared, 1)
+})
 
 test('waits for desktop cleanup before allowing the app to quit', async () => {
   const cleanup = deferred()

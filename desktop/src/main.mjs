@@ -94,7 +94,7 @@ import {
 import {
   createDesktopUpdater,
 } from './updater.mjs'
-import { createGracefulShutdown } from './graceful-shutdown.mjs'
+import { createGracefulShutdown, withDeadline } from './graceful-shutdown.mjs'
 import { DesktopPresence } from './desktop-presence.mjs'
 import { createPushToTalkHook } from './push-to-talk-hook.mjs'
 import { createElectronGatewayCredentialStore } from './gateway-credential-store.mjs'
@@ -1878,6 +1878,13 @@ if (!app.requestSingleInstanceLock()) {
         server?.close(),
         gateway?.stop(),
       ])
+      // Release the app-owned Bonsai/Prism server last, once nothing is talking to
+      // it any more: it is a detached child, so without this its weights stay in
+      // VRAM after we exit. Bounded, so a server that will not release port 8080
+      // cannot hold the quit open.
+      const unloaded = await withDeadline(localModelSwitcher.stopLocalRuntime(), 8000,
+        { ok: false, error: 'Stopping the local model runtime timed out.' })
+      if (!unloaded.ok) logger.warn('desktop.local_runtime_stop_failed', { error: unloaded.error })
       await logger.flush?.()
     },
     onError: error => logger.error('desktop.stop_failed', { error }),

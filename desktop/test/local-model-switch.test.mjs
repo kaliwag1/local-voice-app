@@ -54,7 +54,7 @@ test('Bonsai switch is sequential and config and speech use Prism; failure resto
 })
 
 // Default: 4 GiB model, 8 GiB free → fits beside the old one (background mode).
-function fixture({ failAt = '', ownership = 'owned', freeVram = 8 * GiB, voiceFiles = ['jake.wav', 'notes.txt'] } = {}) {
+function fixture({ failAt = '', ownership = 'owned', freeVram = 8 * GiB, voiceFiles = ['jake.wav', 'notes.txt'], bonsai = null } = {}) {
   const paths = {
     lms: 'lms.exe', speech: speechPath, opencodeConfig: 'opencode.json',
     selection: 'selection', contextLength: 'context', voice: 'voice',
@@ -95,6 +95,7 @@ function fixture({ failAt = '', ownership = 'owned', freeVram = 8 * GiB, voiceFi
     startSpeech: async (key, voice) => { calls.push(['startSpeech', key, voice]); fail('startSpeech'); activeSpeech = {
       pid: 43, executablePath: speechPath, commandLine: speechPath,
     } },
+    bonsai,
     gateway: {
       ownership: () => ownership,
       stop: async () => { calls.push(['gateway.stop']) },
@@ -109,6 +110,27 @@ function fixture({ failAt = '', ownership = 'owned', freeVram = 8 * GiB, voiceFi
     get loadedAll() { return [...loadedSet] },
   }
 }
+
+test('quitting releases the app-owned Bonsai server so its weights leave VRAM', async () => {
+  const stops = []
+  const { controller } = fixture({ bonsai: { stop: async () => { stops.push('stop') } } })
+  assert.deepEqual(await controller.stopLocalRuntime(), { ok: true })
+  assert.deepEqual(stops, ['stop'])
+})
+
+test('a Bonsai server the app does not own is left running and reported, not killed', async () => {
+  // stop() refuses when port 8080 belongs to someone else; the quit carries on.
+  const { controller } = fixture({
+    bonsai: { stop: async () => { throw new Error('Bonsai did not release port 8080.') } },
+  })
+  assert.deepEqual(await controller.stopLocalRuntime(),
+    { ok: false, error: 'Bonsai did not release port 8080.' })
+})
+
+test('with no Bonsai runtime configured there is nothing to release', async () => {
+  const { controller } = fixture()
+  assert.deepEqual(await controller.stopLocalRuntime(), { ok: true })
+})
 
 test('lists only installed LLMs, current selection and context size', async () => {
   const { controller } = fixture()
