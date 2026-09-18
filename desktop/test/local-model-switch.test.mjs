@@ -9,6 +9,7 @@ import {
   parseContextLength,
   parseVoice,
   speechArguments,
+  speechEnvironment,
   updateOpenCodeConfig,
 } from '../src/local-model-switch.mjs'
 
@@ -16,6 +17,11 @@ const oldKey = 'google/gemma-4-26b-a4b-qat'
 const newKey = 'test/other-model'
 const speechPath = 'C:\\voice\\speech-to-speech.exe'
 const GiB = 1024 ** 3
+test('speech tokenizer uses app-local data ahead of any existing data path', () => {
+  const env = speechEnvironment('C:\\voice', { NLTK_DATA: 'D:\\old', KEEP: 'yes' })
+  assert.equal(env.NLTK_DATA, 'C:\\voice\\nltk_data;D:\\old')
+  assert.equal(env.KEEP, 'yes')
+})
 const models = [
   { type: 'llm', modelKey: oldKey, displayName: 'Gemma', sizeBytes: 14 * GiB },
   { type: 'llm', modelKey: newKey, displayName: 'Other', sizeBytes: 4 * GiB },

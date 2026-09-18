@@ -15,9 +15,10 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
   across chats, wake word / hotkey quick-ask, meeting recorder.
 
 ## Agreed next (in this order)
-0. 🔧 **Bonsai Official / CRACK PQ2** — selectable via managed local Prism runtime, sequential
-   switching, saved-launch support, provider-aware speech/titles/Health. 35 focused tests and
-   live chat/tool API tests on both variants pass. Awaiting desktop rebuild and end-to-end check.
+0. ✅ **Bonsai Official / CRACK PQ2** — installed via supported rebuild; live picker switches,
+   saved Official cold start, and desktop replies/TTS playback on both variants verified.
+   36 focused tests and live chat/tool API tests pass. Physical microphone input and full
+   OpenCode task delegation remain untested. App-local NLTK data fixes the redirected-path failure.
 1. ✅ **Task results with clickable paths** — verified live by Jake (cards keep the file list after the reply).
 2. 🔧 **Chat titles** — coded and tested; in the 03:16 build, awaiting Jake's live check.
 3. 🔧 **Health panel** — built; collector tested against local services. In the 03:16 build, awaiting Settings UI check.

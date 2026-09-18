@@ -139,8 +139,15 @@ function speechArguments(modelKey, voice) {
 function launchSpeech(file, modelKey, workdir, voice) {
   const child = spawn(file, speechArguments(modelKey, voice), {
     cwd: workdir, detached: true, stdio: 'ignore', windowsHide: true,
+    env: speechEnvironment(workdir),
   })
   child.unref()
+}
+
+export function speechEnvironment(workdir, env = process.env) {
+  // Keep tokenizer files outside Windows Store/Codex's redirected AppData.
+  const paths = /^[a-z]:\\/i.test(workdir) ? path.win32 : path
+  return { ...env, NLTK_DATA: [paths.join(workdir, 'nltk_data'), env.NLTK_DATA].filter(Boolean).join(paths.delimiter) }
 }
 
 async function replaceFile(path, content) {

@@ -3,6 +3,19 @@
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
 ## 2026-09-18 — Bonsai Official / CRACK via local Prism runtime (Codex)
+- Follow-up deployment: rebuilt the installed `dist/desktop-panel` through the supported script.
+  Live picker showed both variants and switched Qwen → Official. The first desktop reply exposed
+  an existing NLTK PermissionError: cached tokenizer data resolved into Codex's redirected
+  AppData instead of NLTK's allowed roots. Copied cached English `punkt_tab` data into parent
+  `nltk_data/` (ignored), set `NLTK_DATA` in both speech spawn and launcher, preserving other
+  configured paths. No NLTK security checks were disabled. A real desktop retry returned
+  `Bonsai desktop test passed.` with completed response and accepted audio playback in gateway logs.
+  Regression test added; 36 focused tests pass. Actual microphone input has not been tested.
+  Final installed build was cold-started from the real desktop shortcut with saved Official;
+  full panel and Standby returned. Live Official → CRACK switch passed, and CRACK replied
+  `CRACK desktop test passed.` with completed response and accepted audio playback. Returned
+  the model picker to the original Qwen3.5 9B after testing. OpenCode initialization was verified,
+  but an end-to-end OpenCode task was not part of this check (direct model function calls passed).
 - Both downloaded PQ2 variants appear in the existing model picker as `bonsai/official`
   and `bonsai/crack`. Incompatible LM Studio entries for these quantizations are filtered.
 - `desktop/src/bonsai-runtime.mjs` manages the existing `Documents/Codex/BonsaiRunner/llama-server.exe`
@@ -19,9 +32,8 @@ Each entry: what, why, where. Keep this in sync with commits on `jake/local-voic
   titles). Web production build and separate Windows packaging (`dist/bonsai-validation`) pass.
   The validation package was not launched or installed. Live Windows API tests passed for BOTH variants at 32768:
   chat completion, structured function call, repeated start reuse, sequential unload/start/stop.
-- Not yet verified: rebuilt desktop picker-to-voice/OpenCode flow and shortcut cold start with
-  a persisted Bonsai selection. No installed app deployment or push was performed. Jake should
-  rebuild with `Rebuild My Voice App.cmd`, then test Official → CRACK → Qwen and a cold restart.
+- Desktop deployment/cold start and text-to-speech flow were verified in the follow-up above.
+  No remote push was performed. Physical microphone input and a full OpenCode task remain untested.
 - Pre-existing `package-lock.json` and parent `.selected-voice-model` edits were preserved.
 
 ## 2026-09-17 — Settings sheet, Claude-style chat, push-to-talk (Claude)

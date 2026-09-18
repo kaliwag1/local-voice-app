@@ -48,6 +48,9 @@ Bonsai; unload any additional LM Studio models yourself when prompted. The app-o
 remain warm after closing the app, is reused on restart, and is stopped when switching back.
 Startup log: parent `.voice-bonsai-runtime.json.log`. Do not delete the state file while running:
 it records ownership so another process on port 8080 is never killed by mistake.
+Speech uses `NLTK_DATA=<launcher folder>\nltk_data` first. This PC has its cached English
+`tokenizers/punkt_tab/english` files copied there, avoiding Codex/AppData path redirection.
+On another PC, install/copy the English NLTK data into that folder before testing speech.
 
 In-app picker → `desktop/src/local-model-switch.mjs`. Order: `lms load` the new model **while the
 old one keeps serving** (beside it if free VRAM allows — "background"; otherwise unload old first —
