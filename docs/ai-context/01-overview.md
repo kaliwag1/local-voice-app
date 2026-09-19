@@ -9,7 +9,7 @@ screen). **Hard requirement: no paid API, nothing leaves the machine.**
 ## Moving parts
 | Part | Runs as | Port | Notes |
 |---|---|---|---|
-| Desktop app (Electron) | `dist\desktop-panel\win-unpacked\Qwen Audio Agent.exe` | — | Chat window with sidebar, model picker, transcription |
+| Desktop app (Electron) | `dist\desktop-panel\win-unpacked\Qwen Audio Agent.exe` | — | Chat window, composer with model picker and context ring, chat sidebar, transcription |
 | Gateway | Electron utility process inside the app | 3101 | Orchestrates voice + backend; logs to `gateway.log` |
 | Chat model | LM Studio (`lms` CLI) | 1234 | Model chosen in-app; must load with ≥32k context |
 | Speech (STT/TTS) | `speech-to-speech.exe` from `.voice-env` (parakeet-tdt + pocket TTS) | 8765 | Started by the launcher script |

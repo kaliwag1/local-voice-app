@@ -2,49 +2,64 @@
 
 Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 
-## Current status (2026-09-17 evening, end of Claude session 2)
-- Working tree clean on `jake/local-voice-app`; check `git log origin/jake/local-voice-app..HEAD` —
-  Jake pushes with `Push To GitHub.cmd` (app + launcher repos).
-- Verified live by Jake today: background/sequential model switch (log shows both), context picker,
-  voice picker (Cosette), panel resize by edge grips, tray "Reset floating orb".
-- Built today, awaiting Jake's rebuild + check: orb semantics (tray/minimise → orb, ✕ → hidden),
-  Settings page fix (was all-Chinese: nested `<form>`), header Settings gear, orb spawns bottom-right,
-  permission memory (Remember… on cards, Settings → Permissions).
-- Still never checked live: auto-titles/rename/pin, Settings → Health, "Look at my screen".
-- Nothing agreed as next. Candidates from Ideas (Jake's earlier interest): footage helpers, search
-  across chats, wake word / hotkey quick-ask, meeting recorder.
+## Current status (2026-09-19, ~03:00, end of Claude session 3)
+- Both repos pushed and clean: app `jake/local-voice-app` at `dc237e0`, launcher `main` at
+  `0bdb735`. Jake pushes with `Push To GitHub.cmd`.
+- The installed build in `dist\desktop-panel` matches those commits (rebuilt and relaunched
+  after the last change).
+- **Verified live this session:** quitting the app releases the Bonsai server (VRAM 11,992 →
+  2,628 MiB); the rebuild script releases it too (11,703 → 2,262 MiB); the app starts against a
+  stale Gateway lease naming a recycled PID; the composer layout, context ring, chat rows and
+  row menus render and position correctly (measured in the live DOM through the Gateway UI);
+  the model picker switches models; English replies after the ASSISTANT.md translation.
+- **Awaiting Jake's live check:** the context ring filling on a real turn and its window-size
+  buttons; the live token/rate/elapsed line; Settings → Application → Voice; the chat-row ⋮
+  menu and its P/R/A/D shortcuts; the dot pulsing while the model works; the send↔stop swap;
+  and lists rendering as lists after the speech-adapter fix.
+- **Known gaps, deliberate:** only the open chat's dot can pulse (activity and tasks are both
+  per-session, so the client cannot know about other chats); the live line shows characters,
+  not tokens, until streamed chunks are shown to track reported completion tokens; a crash or
+  force-kill still orphans the Bonsai server.
+- Still never checked live from earlier sessions: auto-titles/rename/pin, Settings → Health,
+  "Look at my screen", physical microphone input, a full end-to-end OpenCode task.
 
-## Agreed next (in this order)
-0. ✅ **Chat text formatting** — the adapter now keeps the model's line breaks, so lists render
-   as lists. Awaiting Jake's live check. See 03-changes.
-0. ✅ **Context meter, live turn readout, composer and chat list rework** — in the installed
-   build; see 03-changes for what each one measures and what it deliberately does not claim.
-0. ✅ **Gateway lease survives a force-kill** — stale lock naming a recycled PID no longer blocks
-   every launch; a failed Gateway start now reports its real reason. See 03-changes.
-0. 🔧 **Bonsai VRAM released on quit** — coded and unit-tested; needs a rebuild and one
-   live check (quit the app, confirm `llama-server.exe` is gone and VRAM drops).
-   See 03-changes. Crash/force-kill still orphans the server by design.
-0. ✅ **Turn activity / tokens / model thinking** — compact per-turn panel, persisted
-   history and explicit no-answer status. Real CRACK reasoning/tokens verified through
-   the maintained local speech adapter. See 03-changes for scope and validation.
-0. ✅ **Bonsai Official / CRACK PQ2** — installed via supported rebuild; live picker switches,
-   saved Official cold start, and desktop replies/TTS playback on both variants verified.
-   36 focused tests and live chat/tool API tests pass. Physical microphone input and full
-   OpenCode task delegation remain untested. App-local NLTK data fixes the redirected-path failure.
-1. ✅ **Task results with clickable paths** — verified live by Jake (cards keep the file list after the reply).
-2. 🔧 **Chat titles** — coded and tested; in the 03:16 build, awaiting Jake's live check.
-3. 🔧 **Health panel** — built; collector tested against local services. In the 03:16 build, awaiting Settings UI check.
-4. 🔧 **Screen-aware questions** — built; in the 03:16 build, awaiting screenshot-to-answer check.
-8. 🔧 **Permission memory** — persistent command/folder rules, Remember… on cards, Settings → Permissions.
-   Awaiting rebuild + live check.
-7. 🔧 **Resizable chat panel** — edge grips (drag verified live), size remembered; native resize removed
-   after the cursor glitch. Minimise/maximise/close buttons added. Awaiting rebuild + check.
-6. 🔧 **Voice picker** — Pocket TTS presets + cloned voices from `voices\`; speech-only restart.
-   Awaiting rebuild + listen test.
-5. 🔧 **Background model switching** — built and unit-tested (preload when VRAM allows, services stay up
-   during the load, context-size picker). Awaiting rebuild + live check.
+## Next up (nothing agreed yet — Jake's call)
+- ⏳ **Compare streamed chunks against reported tokens.** The turn snapshot records both. If
+  chunks track completion tokens on this runtime, the live line can show real token counts
+  instead of characters, with evidence rather than an assumption.
+- ⏳ **Per-session busy flag** on `api/conversations`, so background chats can pulse too.
+- ⏳ **Graceful quit for the rebuild script.** It force-kills, which skips the app's shutdown.
+  The script now releases the model server itself, but a real quit would also spare the lease.
+- 💡 The older idea list below is untouched.
+
+## Recently done (newest first)
+- ✅ **Chat text keeps the model's line breaks** — speech adapter overrides `_assistant_text`.
+- ✅ **Context meter, live turn readout, composer and chat list rework** — see 03-changes.
+- ✅ **Gateway failures read in English** — dictionary entries for the lifecycle messages.
+- ✅ **Gateway lease survives a force-kill** — PID reuse no longer blocks every launch.
+- ✅ **Bonsai VRAM released on quit** — verified live by a tray quit; the rebuild script too.
+- ✅ **Live model pick out of Git** — `.selected-voice-model.default` seeds a fresh clone.
+
+## Older items, still awaiting a live check
+These were built in earlier sessions and are in the installed build; nobody has confirmed them
+by using them.
+
+- 🔧 **Chat titles** — auto-titling, rename, pin.
+- 🔧 **Health panel** — Settings → Health; collector tested against local services only.
+- 🔧 **Screen-aware questions** — "Look at my screen", screenshot to answer.
+- 🔧 **Permission memory** — persistent command/folder rules, Remember… on cards,
+  Settings → Permissions.
+- 🔧 **Resizable chat panel** — edge grips (drag verified live), size remembered; native resize
+  was removed after the cursor glitch. See lesson 13.
+- 🔧 **Voice picker** — Pocket TTS presets plus clones from `voices\`; speech-only restart.
+  Moved to Settings → Application on 2026-09-19 and still needs a listen test.
+- 🔧 **Background model switching** — preload when VRAM allows, services stay up during the
+  load. Verified live in an earlier session; re-check after the picker moved to the composer.
 
 ## Done
+- ✅ Bonsai Official / CRACK PQ2 through the local Prism runtime; both variants replied live.
+- ✅ Turn activity, real usage and model thinking through the maintained speech adapter.
+- ✅ Task results with clickable paths.
 - ✅ Git + GitHub backup (two private repos), config snapshot.
 - ✅ Stop button; chat archive/delete; English search; settings fixes; no stray console.
 - ✅ Stable gateway/OpenCode/model switching; agent tasks land on the visible Desktop.

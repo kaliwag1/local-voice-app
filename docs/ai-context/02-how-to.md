@@ -67,12 +67,20 @@ In-app picker → `desktop/src/local-model-switch.mjs`. Order: `lms load` the ne
 old one keeps serving** (beside it if free VRAM allows — "background"; otherwise unload old first —
 "sequential"), then a short swap: stop gateway + speech, rewrite `opencode.json`, restart speech,
 reset the OpenCode coordinator session in `acp-sessions.json`, restart gateway, unload the old model.
-The sidebar text under the picker says which mode is running. Red indicator during the swap is normal.
-Context window: sidebar picker writes `realtime-voice-chat\.selected-voice-context` (read by the
-launcher too) and reloads the current model in place; env `QWEN_AUDIO_LOCAL_MODEL_CONTEXT` is the
-fallback default (32768).
-Voice: sidebar picker writes `realtime-voice-chat\.selected-voice`; clips for cloning go in
-`realtime-voice-chat\voices\` (10–20 s, one clear speaker). Only the speech service restarts.
+Where the controls live now (all three left the sidebar on 2026-09-19):
+- **Model** — the picker in the composer's controls row, showing the current model's name. It
+  reports switch progress in place of the name, and holds the errors, warnings and "Refresh
+  downloaded models" that the old sidebar block carried.
+- **Context window** — inside the context ring's panel, same row. Writes
+  `realtime-voice-chat\.selected-voice-context` (read by the launcher too) and reloads the
+  current model in place; env `QWEN_AUDIO_LOCAL_MODEL_CONTEXT` is the fallback default (32768).
+- **Voice** — Settings → Application → 朗读音色 ("Voice"), via `desktop/src/local-voice-panel.js`
+  and the existing `listLocalModels` / `setLocalVoice` IPC. Writes
+  `realtime-voice-chat\.selected-voice`; clips for cloning go in `realtime-voice-chat\voices\`
+  (10–20 s, one clear speaker). Only the speech service restarts. The row hides itself when the
+  runtime reports no voices.
+
+Switch progress appears in the composer picker; a red indicator during the swap is normal.
 
 ## Running things on the PC from an AI session
 Assistants in a sandbox (Codex, Cowork's Linux VM) **cannot run Windows executables** and may see a

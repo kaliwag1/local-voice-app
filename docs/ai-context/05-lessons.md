@@ -37,3 +37,22 @@
 18. **`settings.html` is one big `<form>`.** Any panel added inside it must not use a nested `<form>`
     or `type="submit"` buttons — the parser drops the inner form, the script crashes on a null
     element, and the whole page appears untranslated with statuses stuck on "checking".
+19. **`position: fixed` is not the viewport if any ancestor has a `transform`.** A menu placed
+    with viewport coordinates landed 874px off-screen because the button itself had
+    `translateY(-50%)`. This UI has transforms all over (orb, panel, animations). Either drop
+    the transform, or pin the element at 0,0, measure where that landed, and shift by the
+    difference. Also: clearing an inline `right` to `''` does not beat a stylesheet `right: 0` —
+    an inline `left` plus that rule stretches the element edge to edge. Use `'auto'`.
+20. **`desktopOrbMode` means "this is the desktop client", not "the orb is showing".**
+    `desktopOrbUrl` sets `desktop=orb` unconditionally and `surface=panel` picks the panel. The
+    compact orb already returns early in `App.jsx`, so anything rendered after that point is
+    panel-only and needs no guard. Gating on it hides things in the panel.
+21. **Voice mode flattens the assistant transcript.** Upstream `speech-to-speech` assembles it
+    with `" ".join(part.strip() ...)`, so the model's line breaks never reach the panel and
+    lists render as one paragraph; text-only mode concatenates verbatim. The app-owned adapter
+    overrides `_assistant_text` to do the same for both. Before blaming the model or the prompt
+    for formatting, check what the transcript assembly did to it.
+22. **A restored snapshot has no "now".** Anything derived from the wall clock — an elapsed
+    time, a rate — must measure to a recorded end, falling back to the last update for records
+    written before that field existed. A finished turn measured against `Date.now()` reported
+    "56m 22s" for a reply that took seconds.
