@@ -28,6 +28,33 @@ test('localizes common main-process errors for the English settings UI', () => {
   )
 })
 
+// The Settings banner is where a Gateway that will not start reports itself, so
+// these are the errors an English reader most needs to be able to act on.
+test('localizes Gateway lifecycle failures, including their exit code or URL', () => {
+  const english = desktopTranslator('en')
+  assert.equal(
+    localizeDesktopError('内嵌 Gateway 启动超时', english),
+    'The built-in Gateway did not finish starting in time',
+  )
+  assert.equal(
+    localizeDesktopError('内嵌 Gateway 提前退出（1）', english),
+    'The built-in Gateway exited early (1)',
+  )
+  assert.equal(
+    localizeDesktopError('内置 Gateway 意外退出', english),
+    'The built-in Gateway exited unexpectedly',
+  )
+  assert.equal(
+    localizeDesktopError('已有 Gateway 正在运行：http://127.0.0.1:3101', english),
+    'A Gateway is already running at http://127.0.0.1:3101',
+  )
+  // Chinese stays untouched for a Chinese UI.
+  assert.equal(
+    localizeDesktopError('内嵌 Gateway 启动超时', desktopTranslator('zh-CN')),
+    '内嵌 Gateway 启动超时',
+  )
+})
+
 test('translates desktop settings text while preserving product names', () => {
   const english = desktopTranslator('en')
   assert.equal(english('设置'), 'Settings')

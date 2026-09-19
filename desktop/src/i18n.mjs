@@ -208,6 +208,13 @@ export function localizeDesktopError(value, translate) {
     [/^Gateway pairing code has expired$/, 'Gateway connection code has expired'],
     [/^这个显示快捷键已被其他应用占用，请选择另一个$/, 'This shortcut is used by another app. Choose another one.'],
     [/^请填写外部后台服务地址$/, 'Enter the external backend service URL'],
+    [/^内嵌 Gateway 启动超时$/, 'The built-in Gateway did not finish starting in time'],
+    [/^内嵌 Gateway 提前退出（(.+)）$/, 'The built-in Gateway exited early ($1)'],
+    [/^内嵌 Gateway 启动已取消$/, 'Starting the built-in Gateway was cancelled'],
+    [/^内置 Gateway 意外退出$/, 'The built-in Gateway exited unexpectedly'],
+    [/^已有 Gateway 正在运行：(.+)$/, 'A Gateway is already running at $1'],
+    [/^已有 Gateway 正在运行$/, 'A Gateway is already running'],
+    [/^无法获取 Gateway 实例租约$/, 'Could not take the Gateway instance lease'],
   ]
   if (translate('设置') === '设置') return text
   for (const [pattern, replacement] of replacements) {

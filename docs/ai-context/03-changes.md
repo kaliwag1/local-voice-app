@@ -2,6 +2,16 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-19 — Gateway failures read in English (Claude)
+- The Settings banner already ran `localizeDesktopError`, but no Gateway lifecycle message was
+  in it, so a failed start reported itself as `内嵌 Gateway 启动超时` to an English UI. Added
+  patterns for the startup timeout, early exit (keeping the exit code), cancelled start,
+  unexpected exit, "already running" (keeping the URL) and the lease failure. Chinese UIs are
+  unchanged: the localizer still returns the raw text when the translator is Chinese.
+- Source strings are untouched; this is dictionary-only, matching how the rest of the desktop UI
+  is translated. Other Chinese runtime errors remain untranslated until they actually surface.
+- Validation: 4 i18n tests including the new lifecycle cases and the Chinese passthrough.
+
 ## 2026-09-19 — the Gateway lease no longer trusts a recycled PID (Claude)
 - A force-killed app left `gateway.lock` behind naming pid 16268. Windows then gave that id to
   `speech-to-speech.exe`, so `acquireGatewayLease` saw a live PID, threw
