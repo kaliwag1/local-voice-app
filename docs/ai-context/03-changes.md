@@ -2,6 +2,14 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-19 — Settings can read and set the local voice (Claude)
+- The voice row never appeared: `qwen-audio-agent:local-models-list` and `local-voice-set` throw
+  unless the sender is the conversation window, so the Settings panel's first call failed and it
+  hid itself - the same thing it does when a runtime reports no voices. `isAppWindow()` now also
+  accepts the Settings window, for those two handlers only. Switching a model or a context window
+  is still conversation-window-only, since that is where both are driven from.
+- Verified the data behind the row is live: 8 presets, current `cosette`, so it renders.
+
 ## 2026-09-19 — the chat panel keeps the model's line breaks (Claude)
 - Replies with numbered steps arrived as a single paragraph. Not the model, the prompt or the
   renderer: with the voice prompt in play the model still emits proper Markdown lists (checked

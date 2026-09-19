@@ -1168,9 +1168,14 @@ ipcMain.handle('qwen-audio-agent:reveal-path', async (event, target) => {
   return { ok: true }
 })
 
+const isAppWindow = sender => Boolean(
+  (mainWindow && sender === mainWindow.webContents)
+  || (settingsWindow && !settingsWindow.isDestroyed() && sender === settingsWindow.webContents),
+)
+
 ipcMain.handle('qwen-audio-agent:local-models-list', async event => {
-  if (!mainWindow || event.sender !== mainWindow.webContents) {
-    throw new Error('Only the desktop conversation window can list local models.')
+  if (!isAppWindow(event.sender)) {
+    throw new Error('Only this app’s own windows can list local models.')
   }
   try {
     return await localModelSwitcher.list()
@@ -1200,8 +1205,8 @@ ipcMain.handle('qwen-audio-agent:local-model-context', async (event, contextLeng
 })
 
 ipcMain.handle('qwen-audio-agent:local-voice-set', async (event, voice) => {
-  if (!mainWindow || event.sender !== mainWindow.webContents) {
-    throw new Error('Only the desktop conversation window can change the voice.')
+  if (!isAppWindow(event.sender)) {
+    throw new Error('Only this app’s own windows can change the voice.')
   }
   if (typeof voice !== 'string' || voice.length > 250) {
     return { ok: false, error: 'Choose a listed voice.' }

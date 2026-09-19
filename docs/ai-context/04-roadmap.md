@@ -20,8 +20,54 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
   per-session, so the client cannot know about other chats); the live line shows characters,
   not tokens, until streamed chunks are shown to track reported completion tokens; a crash or
   force-kill still orphans the Bonsai server.
+- **Agreed next, with Jake:** the static around spoken words (see the section below).
+  He finds it noticeable and annoying, and wants it done in a fresh session.
 - Still never checked live from earlier sessions: auto-titles/rename/pin, Settings → Health,
   "Look at my screen", physical microphone input, a full end-to-end OpenCode task.
+
+## Next task: the static around spoken words (agreed with Jake, 2026-09-19)
+
+**Symptom.** A broadband grit rides on the voice while it speaks. Silent in the gaps, so it is
+modulated with the audio, not a noise floor.
+
+**Cause, measured.** `speech_to_speech/TTS/pocket_tts_handler.py` streams 512-sample blocks at
+the pipeline's 16 kHz. Pocket TTS generates at 24 kHz, so each block is resampled 24k → 16k
+**independently** with `resample_poly`, then padded or trimmed to exactly `blocksize`. Polyphase
+filters carry state across a stream; restarting per block leaves a discontinuity at every seam,
+31.2 per second, only while audio flows.
+
+Measured on a real utterance (cosette, one sentence): artifact **−41 dB relative to speech**,
+and the error is *entirely* at the block seams — the middle of each block matches a continuous
+resample exactly. Reproduce by resampling the same audio per-block versus in one pass and
+subtracting.
+
+**Ruled out, with evidence, so do not re-investigate:**
+- Client decode (`web/src/realtime/audio.js`) is correct: little-endian int16, `/0x8000`.
+- Sample rates match end to end: the service upsamples 16k → 24k for the client
+  (`api/openai_realtime/handlers/audio.py`), and the browser resamples to the device rate.
+- Not the voice preset. Presets differ in level and in floor between words (cosette is the
+  quietest and hissiest there, azelma and jean the cleanest) but the seam artifact is a fixed
+  ratio to the signal, so it is identical for all of them.
+- A latent bug that does not fire: the handler casts with `(x * 32768).astype(np.int16)` and no
+  clipping, so a sample at or above full scale wraps to a full-scale spike. The package's own
+  `utils.resample()` clips properly. Real output peaks at 0.164, so it never triggers today —
+  worth fixing alongside, and it would bite a loud cloned voice.
+
+**Options, hardest part first.** The resampling is inline inside the handler's streaming
+generator, so there is no natural seam to hook.
+1. Override `process()` through the app-owned adapter, resampling continuously (carry a filter
+   tail across blocks, reset per utterance). Correct, but duplicates upstream cancellation and
+   speculative-turn logic, which is the real risk: that logic is what keeps interruptions and
+   stale turns working.
+2. Give the module a stateful resampler and reset it when an utterance starts. Smaller diff,
+   but needs a reliable per-utterance reset signal.
+3. Emit 24 kHz from the TTS and skip the resample entirely. Cleanest audio, but the pipeline is
+   16 kHz throughout (`PIPELINE_SAMPLE_RATE`) and the output stage would then resample wrongly,
+   so it is a pipeline-wide change touching the microphone and VAD paths too.
+
+Whatever the route: it is `speech-adapter` work with version and source-hash checks, tests in
+`test_reasoning_adapter.py`, then a rebuild and a listen. Verify by measuring the seam error
+again and by hearing it, and re-check that interruption still cuts speech off cleanly.
 
 ## Next up (nothing agreed yet — Jake's call)
 - ⏳ **Compare streamed chunks against reported tokens.** The turn snapshot records both. If

@@ -56,3 +56,9 @@
     time, a rate — must measure to a recorded end, falling back to the last update for records
     written before that field existed. A finished turn measured against `Date.now()` reported
     "56m 22s" for a reply that took seconds.
+23. **The local-model IPCs are locked to the conversation window.** `main.mjs` throws unless
+    `event.sender === mainWindow.webContents`. A Settings panel calling `listLocalModels()`
+    therefore fails, and a panel that hides itself when no data comes back looks like a missing
+    feature rather than a rejected call. `isAppWindow()` now also allows the Settings window,
+    for listing models and setting the voice only — switching models and context windows stay
+    with the conversation window.
