@@ -9,6 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { resolve } from 'node:path'
+import { readGatewayHealth } from './http-client.mjs'
 
 export const GATEWAY_LOCK_SCHEMA = 'qwaudio.gateway-lock/v1'
 
@@ -89,12 +90,32 @@ function moveStaleLease(path, token) {
   return true
 }
 
-export function acquireGatewayLease(stateDirectory, {
+// A live process id is not proof that the lease still belongs to a Gateway.
+// Windows recycles ids, so a force-killed Gateway's id reappears on something
+// unrelated soon enough - a speech service, in the case that prompted this - and
+// every later start then refused with "a Gateway is already running". Ask the
+// recorded origin who it is, and yield only to a Gateway that answers with this
+// lease's own identity, the same proof findRunningGateway already requires.
+async function leaseIsLive(existing, { killImpl, probe, now, startingGraceMs }) {
+  if (!processIsAlive(Number(existing.pid), killImpl)) return false
+  if (existing.origin) {
+    const health = await probe(existing.origin)
+    return health?.gatewayInstanceId === existing.instanceId
+  }
+  // No origin yet: a Gateway still starting cannot answer a probe, so trust its
+  // heartbeat for one grace window rather than evicting a healthy startup.
+  const heartbeat = Date.parse(existing.heartbeatAt || existing.startedAt || '')
+  return Number.isFinite(heartbeat) && now().getTime() - heartbeat < startingGraceMs
+}
+
+export async function acquireGatewayLease(stateDirectory, {
   pid = process.pid,
   owner = 'gateway',
   instanceId = randomUUID(),
   now = () => new Date(),
   killImpl = process.kill,
+  probe = origin => readGatewayHealth(origin),
+  startingGraceMs = 45_000,
 } = {}) {
   mkdirSync(stateDirectory, { recursive: true, mode: 0o700 })
   const path = gatewayLockPath(stateDirectory)
@@ -150,7 +171,7 @@ export function acquireGatewayLease(stateDirectory, {
     } catch (error) {
       if (error?.code !== 'EEXIST') throw error
       const existing = readGatewayLease(stateDirectory)
-      if (existing && processIsAlive(Number(existing.pid), killImpl)) {
+      if (existing && await leaseIsLive(existing, { killImpl, probe, now, startingGraceMs })) {
         const conflict = new Error(
           `已有 Gateway 正在运行${existing.origin ? `：${existing.origin}` : ''}`,
         )

@@ -2,6 +2,29 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-19 — the Gateway lease no longer trusts a recycled PID (Claude)
+- A force-killed app left `gateway.lock` behind naming pid 16268. Windows then gave that id to
+  `speech-to-speech.exe`, so `acquireGatewayLease` saw a live PID, threw
+  `QWAUDIO_GATEWAY_ALREADY_RUNNING`, and every launch afterwards fell back to the Settings
+  window with "内嵌 Gateway 启动超时". Clearing the lock unblocked it; this is the real fix.
+- Liveness now needs corroboration, not just `process.kill(pid, 0)`: when the lease records an
+  origin, probe it and yield only to a Gateway answering with that lease's own instance id — the
+  same proof `findRunningGateway` already requires. A lease with no origin yet (still starting,
+  so it cannot answer) is trusted for a 45s grace window measured from its heartbeat, then taken
+  over. A dead PID is still taken over immediately, with no probe.
+- `acquireGatewayLease` is therefore async; `server/src/index.mjs` awaits it. The probe is
+  injectable, defaulting to `readGatewayHealth`. Only three files reference the function.
+- Second defect, which is why the symptom pointed at the wrong thing: a failed start set
+  `process.exitCode = 1` but never exited, and the utility-process channel kept the child alive
+  until the host's 15s timeout. It now flushes and exits, so the host reports the real reason.
+- Validation: 8 lease tests (4 updated for async, 4 new: recycled id, genuine incumbent, foreign
+  service on the port, starting-grace window both sides), 192 root tests, 1312 server tests. The
+  3 server failures in `acp-backend-adapter` / `gateway-client-handshake` are pre-existing and
+  identical at HEAD with these changes stashed. End-to-end against the real entry with a planted
+  lease naming a genuinely live Windows PID: dead origin → starts and takes the lease; a fake
+  Gateway answering with the lease identity → refused, exit 1 in 0.3s (was a 15s timeout), and
+  the incumbent's lease left untouched. Rebuilt into `dist/desktop-panel`. No remote push.
+
 ## 2026-09-18 — quitting releases the Bonsai server (Claude)
 - Quitting the app left `llama-server.exe` running: the Prism server is spawned detached
   (so it can outlive the launcher that starts it) and no shutdown path ever closed it.

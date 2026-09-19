@@ -25,6 +25,15 @@
 14. **Never minimise a window that may later go `skipTaskbar`/hidden without un-minimising it
     first.** On Windows `restore()` is a no-op while hidden and `show()` keeps the minimised state:
     the orb becomes invisible with nothing to click. `show()` then `restore()`; tray has a reset.
-15. **`settings.html` is one big `<form>`.** Any panel added inside it must not use a nested `<form>`
+16. **A live PID is not proof a process is still the one you recorded.** Windows recycles process
+    ids quickly: a force-killed Gateway's id came back as `speech-to-speech.exe` within two
+    minutes, so the PID-only lease check reported "a Gateway is already running" and every later
+    start failed. Corroborate identity — probe the recorded origin and match the instance id —
+    before trusting a saved PID. Same applies to the Bonsai runtime record.
+17. **A gateway child that fails to start must exit, not idle.** Setting `process.exitCode` is not
+    enough: Electron's utility-process channel keeps the child alive, so the host waits out its
+    15s readiness timeout and reports "Gateway startup timed out" while the real reason sits in
+    `state/desktop/logs/gateway.log`. When a start fails, flush and `process.exit(1)`.
+18. **`settings.html` is one big `<form>`.** Any panel added inside it must not use a nested `<form>`
     or `type="submit"` buttons — the parser drops the inner form, the script crashes on a null
     element, and the whole page appears untranslated with statuses stuck on "checking".

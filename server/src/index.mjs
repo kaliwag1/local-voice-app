@@ -54,7 +54,7 @@ try {
   // Gateway that listens but cannot connect its voice is harder to diagnose
   // than a refusal the user can act on.
   assertGatewaySetup()
-  gatewayLease = acquireGatewayLease(runtimeEnvironment.stateDirectory, {
+  gatewayLease = await acquireGatewayLease(runtimeEnvironment.stateDirectory, {
     owner: process.env.QWEN_AUDIO_GATEWAY_OWNER
       || (process.env.QWEN_AUDIO_AGENT_DESKTOP === '1' ? 'desktop' : 'cli'),
   })
@@ -140,8 +140,12 @@ try {
   gatewayHeartbeat.unref?.()
 } catch (error) {
   clearInterval(gatewayHeartbeat)
-  stop()
+  const stopped = stop()
   gatewayLease?.release()
   logger.fatal('gateway.start_failed', { error })
   process.exitCode = 1
+  // Electron's utility-process channel keeps this child alive on its own, so a
+  // failed start would otherwise idle until the host's readiness timeout and be
+  // reported as "Gateway startup timed out" instead of the reason logged above.
+  Promise.allSettled([stopped, logger.flush?.()]).finally(() => process.exit(1))
 }
