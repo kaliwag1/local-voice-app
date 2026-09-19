@@ -21,7 +21,7 @@ export class TurnActivity {
       for (const old of this.turns.values()) {
         if (ACTIVE.has(old.status)) this.finish(old, 'interrupted', 'A new turn started before this turn produced a final answer.')
       }
-      this.turns.set(turnId, { turnId, status: 'working', responses: new Map(), tools: new Map(), reasoning: '', createdAt: this.now(), updatedAt: this.now(), version: 0 })
+      this.turns.set(turnId, { turnId, status: 'working', responses: new Map(), tools: new Map(), reasoning: '', createdAt: this.now(), updatedAt: this.now(), version: 0, stream: { deltas: 0, characters: 0, firstDeltaAt: null, endedAt: null } })
       while (this.turns.size > 100) {
         const key = this.turns.keys().next().value
         clearTimeout(this.timers.get(key)); this.timers.delete(key); this.turns.delete(key)
@@ -37,10 +37,15 @@ export class TurnActivity {
     const snapshot = {
       turnId: turn.turnId, status: turn.status, message: turn.message || '',
       createdAt: turn.createdAt, updatedAt: turn.updatedAt, version: turn.version,
+      stream: { ...turn.stream },
       responseCount: responses.length,
       tools: [...turn.tools.values()].map(tool => ({ ...tool })),
       reasoning: turn.reasoning, reasoningTruncated: Boolean(turn.reasoningTruncated),
-      usage: reported.length ? { input: sum('input'), output: sum('output'), total: sum('total'), reportedResponses: reported.length, complete: responses.length === reported.length } : null,
+      // `latest` is the newest response that reported usage, kept separate from the
+      // sums: every response's prompt already contains the history before it, so
+      // adding prompts across a turn counts the same context several times. The
+      // context meter needs one request's occupancy, not that total.
+      usage: reported.length ? { input: sum('input'), output: sum('output'), total: sum('total'), latest: { ...reported[reported.length - 1] }, reportedResponses: reported.length, complete: responses.length === reported.length } : null,
     }
     try { this.emit(snapshot) } catch { /* activity cannot break a response */ }
     clearTimeout(this.timers.get(turn.turnId))
@@ -65,6 +70,12 @@ export class TurnActivity {
     const response = turn.responses.get(responseId) || {}
     turn.responses.set(responseId, response)
     turn.status = 'working'; turn.message = ''
+    const streamed = typeof event.delta === 'string' ? event.delta : ''
+    if (type.endsWith('.delta') && streamed) {
+      turn.stream.deltas += 1
+      turn.stream.characters += streamed.length
+      turn.stream.firstDeltaAt ??= this.now()
+    }
     if (type.includes('reasoning')) {
       const delta = typeof event.delta === 'string' ? event.delta : ''
       const remaining = 24000 - turn.reasoning.length
@@ -111,7 +122,11 @@ export class TurnActivity {
         : 'The runtime finished without returning answer text or audio.')
     }
   }
-  finish(turn, status, message) { turn.status = status; turn.message = message; this.publish(turn, false) }
+  finish(turn, status, message) {
+    turn.status = status; turn.message = message
+    turn.stream.endedAt ??= this.now()
+    this.publish(turn, false)
+  }
   start(turnId) { const turn = this.get(turnId); if (turn) this.publish(turn) }
   interrupt() { for (const turn of this.turns.values()) if (ACTIVE.has(turn.status)) this.finish(turn, 'interrupted', 'Stopped before a final answer was reported.') }
   fail(turnId) { const turn = this.turns.get(turnId); if (turn) this.finish(turn, 'failed', 'The runtime reported an error. No further activity is expected for this response.') }

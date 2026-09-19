@@ -15,7 +15,12 @@ import {
 } from './message-order.js'
 import MessageContent from './MessageContent.jsx'
 import TurnActivity from './TurnActivity.jsx'
+import ContextMeter from './ContextMeter.jsx'
+import ChatItemMenu from './ChatItemMenu.jsx'
+import { formatContextLength } from './context-usage.js'
+import ComposerModelPicker from './composer/ComposerModelPicker.jsx'
 import { mergeTurnActivities } from './turn-activity.js'
+import { isActive } from './turn-stream.js'
 import MultimodalComposer from './composer/MultimodalComposer.jsx'
 import TaskArtifacts from './TaskArtifacts.jsx'
 import PermissionActions from './PermissionActions.jsx'
@@ -192,12 +197,6 @@ function upsertTask(items, taskId, update, fallback) {
   const next = [...items]
   next[index] = update(next[index])
   return next
-}
-
-function formatContextLength(tokens) {
-  const value = Number(tokens)
-  if (!Number.isFinite(value) || value <= 0) return ''
-  return value % 1024 === 0 ? `${value / 1024}k tokens` : `${value} tokens`
 }
 
 export default function App() {
@@ -1905,12 +1904,12 @@ export default function App() {
     .sort((left, right) => Number(Boolean(right.pinned)) - Number(Boolean(left.pinned))
       || (Date.parse(right.updatedAt) || 0) - (Date.parse(left.updatedAt) || 0))
   const archivedSessions = knownSessions.filter(item => item.archived && item.sessionId !== sessionId)
-  const formatChatDate = value => new Intl.DateTimeFormat(undefined, {
-    month: 'short', day: 'numeric',
-  }).format(new Date(value))
+  const chatWorking = Object.values(turnActivities).some(isActive)
   const renderChatItem = item => <div
     key={item.sessionId}
-    className={`chat-item${item.sessionId === sessionId ? ' active' : ''}${item.archived ? ' archived' : ''}${item.pinned ? ' pinned' : ''}`}
+    className={`chat-item${item.sessionId === sessionId ? ' active' : ''}${item.archived ? ' archived' : ''}${item.pinned ? ' pinned' : ''}${
+      item.sessionId === sessionId && chatWorking ? ' working' : ''
+    }`}
   >
     {editingChat?.sessionId === item.sessionId ? <input
       className="chat-title-input"
@@ -1945,39 +1944,25 @@ export default function App() {
       aria-current={item.sessionId === sessionId ? 'page' : undefined}
       title={`${item.title || 'New chat'} · Double-click or F2 to rename`}
     >
-      <span>{item.pinned && <i className="chat-item-pin" aria-label="Pinned" />}{item.title || 'New chat'}</span>
-      {item.updatedAt && <small>{formatChatDate(item.updatedAt)}</small>}
+      <i
+        className="chat-item-dot"
+        aria-label={item.sessionId === sessionId && chatWorking
+          ? 'Working'
+          : item.pinned ? 'Pinned' : undefined}
+      />
+      <span>{item.title || 'New chat'}</span>
     </button>}
-    <div className="chat-item-actions">
-      <button
-        type="button"
-        onClick={() => {
-          titleEditFinished.current = ''
-          setEditingChat({ sessionId: item.sessionId, title: item.title || '' })
-        }}
-        title="Rename chat"
-        aria-label="Rename chat"
-      >✎</button>
-      <button
-        type="button"
-        onClick={() => setSessionPinned(item.sessionId, !item.pinned)}
-        title={item.pinned ? 'Unpin chat' : 'Pin chat'}
-        aria-label={item.pinned ? 'Unpin chat' : 'Pin chat'}
-      >{item.pinned ? '◆' : '◇'}</button>
-      <button
-        type="button"
-        onClick={() => setSessionArchived(item.sessionId, !item.archived)}
-        title={item.archived ? 'Restore chat' : 'Archive chat'}
-        aria-label={item.archived ? 'Restore chat' : 'Archive chat'}
-      >{item.archived ? '↩' : '▣'}</button>
-      <button
-        type="button"
-        className="danger"
-        onClick={() => deleteSession(item.sessionId)}
-        title="Delete chat"
-        aria-label="Delete chat"
-      >✕</button>
-    </div>
+    <ChatItemMenu
+      pinned={item.pinned}
+      archived={item.archived}
+      onRename={() => {
+        titleEditFinished.current = ''
+        setEditingChat({ sessionId: item.sessionId, title: item.title || '' })
+      }}
+      onTogglePin={() => setSessionPinned(item.sessionId, !item.pinned)}
+      onToggleArchive={() => setSessionArchived(item.sessionId, !item.archived)}
+      onDelete={() => deleteSession(item.sessionId)}
+    />
   </div>
 
   return <main className={`app${
@@ -2128,57 +2113,6 @@ export default function App() {
           setShowAudioTranscriber(true)
         }}
       >Transcribe audio</button>
-      <div className="local-model-picker">
-        <div className="local-model-picker-heading">
-          <label htmlFor="local-model-select">Local model</label>
-          <button type="button" onClick={() => void refreshLocalModels()} title="Refresh downloaded models">↻</button>
-        </div>
-        <select
-          id="local-model-select"
-          value={localModelKey}
-          disabled={localModelBusy || localModels.length === 0}
-          onChange={event => void changeLocalModel(event.target.value)}
-        >
-          {localModels.length === 0 && <option value="">Unavailable</option>}
-          {localModels.map(model => <option key={model.modelKey} value={model.modelKey}>
-            {model.displayName}
-          </option>)}
-        </select>
-        <label htmlFor="local-context-select">Context window</label>
-        <select
-          id="local-context-select"
-          value={localContextLength || ''}
-          disabled={localModelBusy || localContextOptions.length === 0}
-          onChange={event => void changeLocalContext(event.target.value)}
-        >
-          {localContextOptions.length === 0 && <option value="">Unavailable</option>}
-          {localContextOptions.map(option => <option key={option} value={option}>
-            {formatContextLength(option)}{option === 32768 ? ' (default)' : ''}
-          </option>)}
-        </select>
-        <label htmlFor="local-voice-select" title="Presets are built into Pocket TTS. Drop a WAV clip into the voices folder and refresh to clone a voice — all local.">Voice</label>
-        <select
-          id="local-voice-select"
-          value={localVoice}
-          disabled={localModelBusy || localVoiceOptions.length === 0}
-          onChange={event => void changeLocalVoice(event.target.value)}
-        >
-          {localVoiceOptions.length === 0 && <option value="">Unavailable</option>}
-          {localVoiceOptions.some(option => option.kind === 'preset') && <optgroup label="Built-in">
-            {localVoiceOptions.filter(option => option.kind === 'preset').map(option => <option key={option.id} value={option.id}>
-              {option.label}{option.id === 'jean' ? ' (default)' : ''}
-            </option>)}
-          </optgroup>}
-          {localVoiceOptions.some(option => option.kind === 'file') && <optgroup label="My voices folder">
-            {localVoiceOptions.filter(option => option.kind === 'file').map(option => <option key={option.id} value={option.id}>
-              {option.label}
-            </option>)}
-          </optgroup>}
-        </select>
-        {localModelProgressText && <small className="local-model-progress">{localModelProgressText}</small>}
-        {localModelWarning && <small>{localModelWarning}</small>}
-        {localModelError && <small role="alert">{localModelError}</small>}
-      </div>
     </aside>}
 
     <section className={`workspace${showAudioTranscriber ? ' show-audio-transcriber' : ''}`}>
@@ -2237,6 +2171,25 @@ export default function App() {
         voiceInputEnabled={voice.inputReady}
         connectionState={voice.connectionState}
         compact={desktopOrbMode}
+        status={<>
+          <ComposerModelPicker
+            models={localModels}
+            value={localModelKey}
+            busy={localModelBusy}
+            progress={localModelProgressText}
+            warning={localModelWarning}
+            error={localModelError}
+            onChange={changeLocalModel}
+            onRefresh={refreshLocalModels}
+          />
+          <ContextMeter
+            activities={turnActivities}
+            contextLength={localContextLength}
+            contextOptions={localContextOptions}
+            contextBusy={localModelBusy}
+            onContextChange={changeLocalContext}
+          />
+        </>}
         onListScreenApps={desktopOrbMode ? window.qwenAudioAgentDesktop?.listScreenApps : null}
         onCaptureScreenApp={desktopOrbMode ? window.qwenAudioAgentDesktop?.captureScreenApp : null}
         busy={somethingInFlight}

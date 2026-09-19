@@ -17,6 +17,7 @@ import { updaterButtonState, updaterStatusText } from './update-status.mjs'
 import { isLoopbackUrl } from './security.mjs'
 import { installHealthPanel } from './health-panel.js'
 import { installPermissionsPanel } from './permissions-panel.js'
+import { installLocalVoicePanel } from './local-voice-panel.js'
 import {
   desktopTranslator,
   effectiveDesktopLanguage,
@@ -82,6 +83,7 @@ function installOptionalPanel(install) {
 }
 const refreshHealth = installOptionalPanel(installHealthPanel)
 const refreshPermissions = installOptionalPanel(installPermissionsPanel)
+const refreshLocalVoice = installOptionalPanel(installLocalVoicePanel)
 
 let translate = desktopTranslator('auto', navigator.language)
 const t = (text, params) => translate(text, params)
@@ -134,6 +136,7 @@ function selectSettingsTab(value, { focus = false } = {}) {
   localStorage.setItem('qwen-audio-agent.settings-tab', selected)
   if (selected === 'health') void refreshHealth()
   if (selected === 'permissions') void refreshPermissions()
+  if (selected === 'app') void refreshLocalVoice()
 }
 
 for (const tab of settingsTabs) {

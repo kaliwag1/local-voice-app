@@ -67,6 +67,8 @@ const ENGLISH = {
   '休眠后说出"你好千问"即可唤醒': 'Say “nǐ hǎo Qiānwèn” (你好千问) to wake after sleeping — the wake-word model is Chinese-only',
   '显示快捷键': 'Show shortcut',
   '按住说话': 'Push to talk',
+  '朗读音色': 'Voice',
+  '内置音色，或 voices 文件夹中的本地克隆音色': 'Built-in presets, or a clone from your voices folder',
   '麦克风': 'Microphone',
   '始终开启': 'Always on',
   '按住说话键': 'Push-to-talk key',

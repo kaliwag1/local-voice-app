@@ -15,6 +15,11 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
   across chats, wake word / hotkey quick-ask, meeting recorder.
 
 ## Agreed next (in this order)
+0. 🔧 **Chat text formatting** — voice-mode transcripts are flattened upstream, so lists render
+   as a paragraph. Fix belongs in `scripts/runtime/speech-adapter` as a hash-checked override
+   of `_assistant_text`. See 03-changes.
+0. ✅ **Context meter, live turn readout, composer and chat list rework** — in the installed
+   build; see 03-changes for what each one measures and what it deliberately does not claim.
 0. ✅ **Gateway lease survives a force-kill** — stale lock naming a recycled PID no longer blocks
    every launch; a failed Gateway start now reports its real reason. See 03-changes.
 0. 🔧 **Bonsai VRAM released on quit** — coded and unit-tested; needs a rebuild and one

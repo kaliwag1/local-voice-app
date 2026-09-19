@@ -70,19 +70,20 @@
   position: relative;
   width: min(880px, calc(100% - 32px));
   margin: 0 auto 20px;
-  padding: 10px;
+}
+
+.composer-field {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-xl);
   background: var(--surface-glass);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
   backdrop-filter: blur(18px);
 }
-
-.composer-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-}
+.composer-field:focus-within { border-color: var(--accent, #7c6cf0); }
 
 .composer-screen { flex: 0 0 42px; height: 42px; border: 0; border-radius: var(--radius-md); color: inherit; background: var(--fill); }
 .composer-screen svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; }
@@ -95,11 +96,11 @@
 .screen-capture-preview strong, .screen-capture-preview small { display: block; overflow-wrap: anywhere; }
 .screen-capture-preview small { color: var(--text-3); margin: 4px 0; font-size: 12px; }
 
-.composer-row textarea {
+.composer-field textarea {
   flex: 1;
   min-height: 42px;
   max-height: 140px;
-  resize: vertical;
+  resize: none;
   border: 0;
   outline: 0 !important;
   padding: 10px 4px;
@@ -234,32 +235,14 @@
 }
 
 .composer-send {
-  padding: 0 16px;
-  background: var(--accent);
-  color: var(--text);
+  padding: 0;
+  background: transparent;
+  color: var(--text-3, #92929d);
 }
+.composer-send:hover:not(:disabled) { background: var(--fill-hover); color: var(--text); }
+.composer-send:disabled { opacity: 0.5; }
 
-.composer-stop {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 42px;
-  padding: 0 14px;
-  border: 1px solid var(--danger-border);
-  border-radius: var(--radius-lg);
-  color: var(--danger-text);
-  background: var(--danger-soft);
-  cursor: pointer;
-}
 
-.composer-stop:hover { background: var(--danger-soft-hover); }
-
-.composer-stop-icon {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  background: currentColor;
-}
 
 .composer-attachments {
   display: flex;
@@ -717,11 +700,10 @@ html[data-settings-open] .desktop-conversation-panel {
 .desktop-conversation-panel .multimodal-composer {
   width: min(calc(100% - 28px), 720px);
   margin: 0 auto 12px;
-  padding: 8px;
-  border-radius: var(--radius-lg);
 }
+.desktop-conversation-panel .composer-field { padding: 6px 6px 6px 10px; border-radius: var(--radius-lg); }
 
-.desktop-conversation-panel .composer-row textarea {
+.desktop-conversation-panel .composer-field textarea {
   min-height: 38px;
   padding: 8px 3px;
 }
@@ -2110,3 +2092,155 @@ article.user .message-body .inline-code { background: var(--fill-hover); color: 
 .turn-activity-body small { display: block; font-size: 11px; }
 .turn-thinking { margin-top: 8px; }
 .turn-thinking pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; font: inherit; }
+
+/* Context meter: a small ring beside the composer, click to open the numbers. */
+.context-meter { position: relative; font-size: 12px; color: var(--turn-activity-muted); }
+.context-meter > summary {
+  display: flex; align-items: center; gap: 6px;
+  cursor: pointer; padding: 4px 8px; border-radius: var(--radius-sm, 8px);
+  list-style: none;
+}
+.context-meter > summary::-webkit-details-marker { display: none; }
+.context-meter > summary:hover { background: var(--surface-2, #16161f); }
+.context-meter-high > summary { color: var(--warning, #d6aa60); }
+.context-meter-critical > summary { color: var(--danger, #e0736d); }
+.context-ring-track { stroke: var(--surface-3, #24242e); }
+.context-ring-fill { stroke: var(--accent, #7c6cf0); transition: stroke-dasharray 240ms ease; }
+.context-ring-high .context-ring-fill { stroke: var(--warning, #d6aa60); }
+.context-ring-critical .context-ring-fill { stroke: var(--danger, #e0736d); }
+/* Opens upward: the composer is at the bottom of the panel. */
+.context-meter-body {
+  position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 5;
+  width: min(320px, 78vw); padding: 10px 12px;
+  background: var(--surface-2, #16161f); border: 1px solid var(--border, #2a2a36);
+  border-radius: var(--radius-sm, 8px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.context-meter-body p { margin: 5px 0; }
+.context-meter-body small { display: block; font-size: 11px; margin-top: 6px; }
+.context-meter-warning { color: var(--warning, #d6aa60); }
+.turn-stream { font-variant-numeric: tabular-nums; }
+.turn-activity-working > summary .turn-stream { color: var(--accent, #7c6cf0); }
+
+/* Controls row under the text field: tools on the left, status on the right. */
+.composer-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 0 2px;
+}
+.composer-tools { display: flex; align-items: center; gap: 6px; }
+.composer-status { display: flex; align-items: center; margin-left: auto; }
+/* Secondary to the text field, so smaller than the send button beside it. */
+.composer-controls .composer-attach,
+.composer-controls .composer-camera,
+.composer-controls .composer-screen {
+  min-width: 32px;
+  flex-basis: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+}
+.composer-controls .composer-screen svg { width: 17px; height: 17px; }
+.desktop-conversation-panel .composer-controls .composer-attach,
+.desktop-conversation-panel .composer-controls .composer-camera,
+.desktop-conversation-panel .composer-controls .composer-screen {
+  min-width: 30px;
+  flex-basis: 30px;
+  height: 30px;
+}
+
+/* Send: the return glyph alone, since Enter already sends. */
+.composer-send { display: grid; place-items: center; min-width: 38px; height: 38px; padding: 0; }
+.composer-send svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Model picker: the name in the row, the list on click. */
+.composer-model { position: relative; font-size: 12px; color: var(--text-3, #92929d); }
+.composer-model > summary {
+  cursor: pointer; padding: 4px 8px; border-radius: var(--radius-sm, 8px);
+  list-style: none; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+}
+.composer-model > summary::-webkit-details-marker { display: none; }
+.composer-model > summary:hover { background: var(--fill-hover); color: var(--text); }
+.composer-model.busy > summary { color: var(--accent, #7c6cf0); }
+.composer-model-body {
+  position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 5;
+  min-width: 220px; max-width: min(320px, 78vw); padding: 6px;
+  background: var(--surface-2, #16161f); border: 1px solid var(--border, #2a2a36);
+  border-radius: var(--radius-sm, 8px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.composer-model-body ul { list-style: none; margin: 0; padding: 0; }
+.composer-model-body button {
+  display: block; width: 100%; text-align: left;
+  padding: 7px 9px; border: 0; border-radius: var(--radius-sm, 8px);
+  color: var(--text); background: transparent; font: inherit; cursor: pointer;
+}
+.composer-model-body button:hover:not(:disabled) { background: var(--fill-hover); }
+.composer-model-body button.current { color: var(--accent, #7c6cf0); }
+.composer-model-body button:disabled { cursor: default; opacity: 0.75; }
+.composer-model-note { margin: 4px 6px 6px; font-size: 11px; color: var(--text-3, #92929d); }
+
+.composer-status { gap: 2px; }
+.context-meter > summary { padding: 5px 6px; }
+.context-meter-headline { font-size: 14px; color: var(--text); margin: 0 0 6px; }
+.context-meter-headline span { font-size: 12px; color: var(--turn-activity-muted); }
+
+/* Chat row menu: one dotted button that appears on hover or keyboard focus. */
+.chat-item-menu { position: absolute; top: 50%; right: 6px; margin-top: -12px; }
+.chat-item-menu > summary {
+  display: grid; place-items: center;
+  width: 24px; height: 24px;
+  border-radius: var(--radius-sm);
+  color: var(--text-3); cursor: pointer; list-style: none;
+  opacity: 0; transition: opacity 120ms ease;
+}
+.chat-item-menu > summary::-webkit-details-marker { display: none; }
+.chat-item:hover .chat-item-menu > summary,
+.chat-item-menu > summary:focus-visible,
+.chat-item-menu[open] > summary { opacity: 1; }
+.chat-item-menu > summary:hover,
+.chat-item-menu[open] > summary { color: var(--text); background: var(--surface-3); }
+.chat-item-menu-body {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 20;
+  min-width: 148px; padding: 5px;
+  background: var(--surface-2, #16161f); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+}
+.chat-item-menu-body button {
+  display: block; width: 100%; text-align: left;
+  padding: 7px 9px; border: 0; border-radius: var(--radius-sm);
+  color: var(--text-2); background: transparent; font: inherit; font-size: 12px; cursor: pointer;
+}
+.chat-item-menu-body button:hover { background: var(--fill-hover); color: var(--text); }
+.chat-item-menu-body button.danger { color: var(--danger-text); }
+.chat-item-menu-body button.danger:hover { background: var(--danger-soft); }
+.chat-item-menu-body button { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.chat-item-menu-body hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--border, #2a2a36); }
+.chat-item-menu-key { color: var(--text-4, #6b6b78); font-size: 11px; }
+
+/* Chat rows: a status dot, the title, and nothing else competing with them. */
+.chat-item-main { flex-direction: row; align-items: center; gap: 9px; padding: 8px 34px 8px 10px; }
+.chat-item-dot {
+  flex: 0 0 auto;
+  width: 7px; height: 7px;
+  border: 1px solid var(--text-4, #6b6b78);
+  border-radius: 50%;
+  background: transparent;
+}
+.chat-item.pinned .chat-item-dot { border-color: var(--accent, #7c6cf0); background: var(--accent, #7c6cf0); }
+/* The open chat pulses while the model is working in it. */
+.chat-item.working .chat-item-dot {
+  border-color: var(--accent, #7c6cf0);
+  background: var(--accent, #7c6cf0);
+  animation: chat-dot-pulse 1.9s ease-in-out infinite;
+}
+@keyframes chat-dot-pulse {
+  0%, 100% { opacity: 0.35; box-shadow: 0 0 0 0 rgba(124, 108, 240, 0); }
+  50% { opacity: 1; box-shadow: 0 0 0 3px rgba(124, 108, 240, 0.18); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-item.working .chat-item-dot { animation: none; opacity: 1; }
+}
+/* Same button, stopping instead of sending: brighter, so the change is noticed. */
+.composer-send.stopping { color: var(--text); }
+.composer-send.stopping:hover { background: var(--fill-hover); }

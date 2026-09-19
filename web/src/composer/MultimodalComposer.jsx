@@ -44,6 +44,9 @@ export default function MultimodalComposer({
   onStop = null,
   onListScreenApps = null,
   onCaptureScreenApp = null,
+  // Rendered at the right of the controls row: what the composer is about to
+  // spend, next to the buttons that spend it.
+  status = null,
 }) {
   const [text, setText] = useState('')
   const [attachments, setAttachments] = useState([])
@@ -160,7 +163,48 @@ export default function MultimodalComposer({
         >×</button>
       </span>)}
     </div>}
-    <div className="composer-row">
+    <div className="composer-field">
+      <textarea
+        value={text}
+        rows="1"
+        placeholder={compact
+          ? t('输入文字或图片')
+          : t('输入文字，或粘贴、拖入图片和文件')}
+        onChange={event => setText(event.target.value)}
+        onPaste={event => {
+          const files = event.clipboardData?.files
+          if (!files?.length) return
+          event.preventDefault()
+          addFiles(files, 'clipboard')
+        }}
+        onKeyDown={event => {
+          if (event.key === 'Enter' && !event.shiftKey) submit(event)
+        }}
+      />
+      {busy && typeof onStop === 'function'
+        ? <button
+          className="composer-send stopping"
+          type="button"
+          onClick={() => { void onStop() }}
+          title="Stop the current reply and any running task"
+          aria-label="Stop"
+        ><svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <rect x="8.5" y="8.5" width="7" height="7" rx="1.4" fill="currentColor" stroke="none" />
+        </svg></button>
+        : <button
+          className="composer-send"
+          type="submit"
+          disabled={capturingScreen}
+          title={t('发送')}
+          aria-label={t('发送')}
+        ><svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 7v4a3 3 0 0 1-3 3H6" />
+          <path d="M9 11l-3 3 3 3" />
+        </svg></button>}
+    </div>
+    <div className="composer-controls">
+      <div className="composer-tools">
       <button
         className="composer-attach"
         type="button"
@@ -190,31 +234,8 @@ export default function MultimodalComposer({
           event.target.value = ''
         }}
       />
-      <textarea
-        value={text}
-        rows="1"
-        placeholder={compact
-          ? t('输入文字或图片')
-          : t('输入文字，或粘贴、拖入图片和文件')}
-        onChange={event => setText(event.target.value)}
-        onPaste={event => {
-          const files = event.clipboardData?.files
-          if (!files?.length) return
-          event.preventDefault()
-          addFiles(files, 'clipboard')
-        }}
-        onKeyDown={event => {
-          if (event.key === 'Enter' && !event.shiftKey) submit(event)
-        }}
-      />
-      {busy && typeof onStop === 'function' && <button
-        className="composer-stop"
-        type="button"
-        onClick={() => { void onStop() }}
-        title="Stop the current reply and any running task"
-        aria-label="Stop"
-      ><span className="composer-stop-icon" aria-hidden="true" /> Stop</button>}
-      <button className="composer-send" type="submit" disabled={capturingScreen}>{t('发送')}</button>
+      </div>
+      {status ? <div className="composer-status">{status}</div> : null}
     </div>
     {error && <small className="composer-error" role="alert">{error}</small>}
   </form>

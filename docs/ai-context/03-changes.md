@@ -2,6 +2,47 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-19 — context meter, live turn readout and a reworked composer (Claude)
+- **Context meter.** A ring in the composer's controls row, filling as the window fills, with
+  the numbers and the window-size picker behind a click. It reads the newest response's own
+  usage, not the turn totals already in the activity panel: each response's prompt contains the
+  history sent with it, so summing prompts across a turn counts the same context several times.
+  `TurnActivity` publishes `usage.latest` for that. Unmeasured runtimes say so rather than
+  drawing an empty ring, and a conversation past the window clamps the ring but keeps the real
+  figures. The Settings context-size select moved in here; changing it still reloads the model.
+- **Live turn readout.** Under each turn: an elapsed clock and streamed characters while the
+  model works, settling to tokens, duration and tok/s when the runtime reports usage. It fills
+  the silence that made a running turn look stuck. Two clocks on purpose - elapsed covers the
+  whole turn, the rate is measured from the first streamed delta so prompt processing does not
+  drag it down. Characters and chunk counts are exact; token figures are only ever the
+  runtime's own. A finished turn measures to its recorded end, falling back to its last update
+  for turns recorded before these counters, which otherwise counted up against the wall clock.
+- **Composer.** The box now wraps the text field alone, with the tools and status on a row
+  beneath it. Send is the return glyph, and becomes a stop control while a reply is running -
+  the separate red Stop button is gone. The local model picker lives in that row, showing the
+  current model and switching on click, and carries the errors, warnings and refresh the
+  sidebar block used to hold. The sidebar's model and context selects are gone; the voice
+  select moved to Settings → Application, which is a setting rather than a per-chat choice.
+- **Chat list.** A status dot and the title, no date. The dot is hollow, accent when pinned,
+  and pulses while the model is working in the open chat - only that one, because activity
+  snapshots and tasks are both per-session, so the client cannot honestly know about the rest.
+  The four row icons became one ⋮ menu (Pin/Rename/Archive/Delete with shortcut letters),
+  appearing on hover and on keyboard focus.
+- Popovers share one dismissal helper: click outside or Escape closes them, and opening one
+  closes the others. The chat menu measures its own placement, because a fixed element resolves
+  against the nearest transformed ancestor, not the viewport, and this UI has several.
+- Validation: 188 of 189 web tests (the `permission-actions-render` failure is pre-existing and
+  identical at HEAD), 3 new desktop tests for the voice grouping, and the full desktop and root
+  suites unchanged. Rebuilt and checked in the running app through the Gateway UI: the meter and
+  picker render in the controls row, the field is boxed alone, the textarea no longer has a
+  resize grip, chat rows are single-line with dots and no dates, and each row menu opens
+  on-screen, right-aligned under its button.
+- Not done here: the chat text itself arrives flattened. In voice mode the installed
+  speech-to-speech package joins transcript parts with spaces and strips each one
+  (`handlers/response.py`, `_assistant_text`), so the model's line breaks never reach the
+  panel and lists render as a paragraph. The model does emit them; fixing it belongs in the
+  app-owned speech adapter.
+
 ## 2026-09-19 — Gateway failures read in English (Claude)
 - The Settings banner already ran `localizeDesktopError`, but no Gateway lifecycle message was
   in it, so a failed start reported itself as `内嵌 Gateway 启动超时` to an English UI. Added
