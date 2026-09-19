@@ -19,7 +19,15 @@ unclaimed speculative work, stale turns, failed or closed responses. The app
 stores at most 24,000 characters per turn, collapsed by default. Not all models
 emit reasoning; absence is displayed as unavailable, never reconstructed.
 
-The extension checks the installed version and source hashes of all three
+It also restores the model's own line breaks in the chat panel. Upstream builds
+the audio-mode transcript by stripping each part and joining with a space
+(`api/openai_realtime/handlers/response.py`, `_assistant_text`), so numbered
+steps and bullets arrive as one paragraph; text mode already concatenates
+verbatim. The override uses that same assembly for both. Only the transcript item
+changes: audio is synthesised from the parts themselves, so speech is unaffected,
+and joining verbatim cannot drop or reorder words.
+
+The extension checks the installed version and source hashes of all four
 overridden functions before installing any hooks. If upstream changes, it
 prints an unavailable diagnostic and leaves ordinary speech working. To upgrade,
 review upstream cancellation/output contracts, adapt this file, run the tests,

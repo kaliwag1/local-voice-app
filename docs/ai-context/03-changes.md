@@ -2,6 +2,25 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-19 — the chat panel keeps the model's line breaks (Claude)
+- Replies with numbered steps arrived as a single paragraph. Not the model, the prompt or the
+  renderer: with the voice prompt in play the model still emits proper Markdown lists (checked
+  directly, 24 lines and 16 list items). Upstream `speech-to-speech` builds the audio-mode
+  transcript with `" ".join(part.strip() ...)`, discarding every newline. Bold survived because
+  `**` are inline characters; line breaks only existed as whitespace between parts.
+- The app-owned speech adapter now overrides `ResponseHandler._assistant_text` as a fourth
+  hash-checked function, concatenating parts verbatim - exactly what upstream already does in
+  text-only mode. Only the transcript item is affected: audio is synthesised from the parts, so
+  nothing about speech changes, and a verbatim join cannot drop or reorder words.
+- Validation: 9 adapter tests (4 new: line breaks survive a spoken answer, audio and text modes
+  now agree, nothing dropped or reordered, empty parts). Confirmed the guard still refuses a
+  changed upstream with a clear error and leaves upstream behaviour intact, and that
+  `sitecustomize` catches any failure so speech keeps working. Then ran the app's own startup
+  path - `ZD_VOICE_REASONING_ADAPTER=1` with the adapter on `PYTHONPATH` - and confirmed the
+  hook installs and a three-part answer comes back with its list intact. Rebuilt and relaunched.
+- The speech service is spawned with `stdio: 'ignore'`, so its unavailable diagnostic is not
+  visible from the app. If formatting ever regresses, run that startup path by hand to see it.
+
 ## 2026-09-19 — context meter, live turn readout and a reworked composer (Claude)
 - **Context meter.** A ring in the composer's controls row, filling as the window fills, with
   the numbers and the window-size picker behind a click. It reads the newest response's own

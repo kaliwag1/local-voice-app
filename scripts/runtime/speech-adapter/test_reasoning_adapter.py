@@ -3,6 +3,7 @@ from queue import Queue
 from types import SimpleNamespace as NS
 from openai.types.chat import ChatCompletionChunk
 from speech_to_speech.LLM.base_openai_compatible_language_model import _GenState
+from speech_to_speech.api.openai_realtime.handlers.response import ResponseHandler
 import reasoning_adapter as adapter
 
 adapter.install()
@@ -76,6 +77,37 @@ class AdapterTests(unittest.TestCase):
         st.current_response_key = "key1"
         st.response_failed = True
         self.assertEqual(adapter.ResponseHandler.on_assistant_output(handler, "c1", event), [])
+
+
+class TranscriptTests(unittest.TestCase):
+    """The chat panel shows this text, so it must keep the model's formatting.
+
+    Upstream stripped each part and joined them with a space in audio mode,
+    which turned a numbered list into a single paragraph.
+    """
+
+    def assemble(self, parts, wants_audio):
+        return ResponseHandler._assistant_text({"parts": parts}, wants_audio)
+
+    def test_line_breaks_survive_a_spoken_answer(self):
+        parts = ["Here is how:\n\n", "1. Find a gym\n", "2. Book a session\n"]
+        spoken = self.assemble(parts, True)
+        self.assertEqual(spoken, "Here is how:\n\n1. Find a gym\n2. Book a session\n")
+        # Markdown only makes a list when each item starts its own line.
+        self.assertEqual(spoken.count("\n1. "), 1)
+        self.assertEqual(spoken.count("\n2. "), 1)
+
+    def test_audio_and_text_modes_now_agree(self):
+        parts = ["One.\n", "Two.\n"]
+        self.assertEqual(self.assemble(parts, True), self.assemble(parts, False))
+
+    def test_nothing_is_dropped_or_reordered(self):
+        parts = ["alpha ", "beta ", "gamma"]
+        self.assertEqual(self.assemble(parts, True), "alpha beta gamma")
+
+    def test_empty_parts_are_harmless(self):
+        self.assertEqual(self.assemble([], True), "")
+        self.assertEqual(self.assemble(["", "text"], True), "text")
 
 
 if __name__ == "__main__":
