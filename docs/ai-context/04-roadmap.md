@@ -21,6 +21,7 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
   not tokens, until streamed chunks are shown to track reported completion tokens; a crash or
   force-kill still orphans the Bonsai server.
 - **Agreed next, with Jake:** the static around spoken words (see the section below).
+  Also agreed, not started: a deafen key and separate voice / text-only modes.
   He finds it noticeable and annoying, and wants it done in a fresh session.
 - Still never checked live from earlier sessions: auto-titles/rename/pin, Settings → Health,
   "Look at my screen", physical microphone input, a full end-to-end OpenCode task.
@@ -68,6 +69,47 @@ generator, so there is no natural seam to hook.
 Whatever the route: it is `speech-adapter` work with version and source-hash checks, tests in
 `test_reasoning_adapter.py`, then a rebuild and a listen. Verify by measuring the seam error
 again and by hearing it, and re-check that interruption still cuts speech off cleanly.
+
+## Agreed features, not started (2026-09-19)
+
+### Deafen key — silence the speaker without stopping the conversation
+A key that stops you hearing the assistant, so it can keep working while you are on a call, in
+a room with other people, or just tired of it talking. Text keeps arriving either way.
+
+Two behaviours worth deciding between before building, because they are not the same thing:
+- **Local mute** — the reply is still synthesised and the transcript still streams; the audio is
+  simply not played. Instant, reversible mid-sentence, wastes TTS compute.
+- **Output disabled** — tell the Gateway not to produce audio at all. Saves the work, but it is a
+  session-level change and a mid-reply toggle is messier.
+
+Local mute is probably what "deafen" should mean, with the Gateway flag reserved for the mode
+switch below. Ask Jake which he pictured.
+
+Existing machinery to build on:
+- `web/src/realtime/useRealtimeVoice.js` already tracks `mutedPlaybackResponses` and has a
+  playback queue with sources it can stop, so a global mute is close to what is there.
+- Global hotkeys are a solved problem in this app: the wake shortcut and the push-to-talk key
+  register through the desktop layer (`push-to-talk-hook.mjs`, uiohook-napi), and Settings →
+  Application already has the shortcut-recorder control pattern to reuse.
+- Deafening while audio is mid-flight must flush the queue and release playback cleanly, or the
+  Gateway will keep waiting on playback events. See `playback-lifecycle.js`.
+
+### Two modes — voice, and plain chat with no audio agent
+A mode where the app is an ordinary text chat: no microphone, no speech service, no TTS. Useful
+when the speech stack is not wanted or not running, and it should not require the local speech
+service to be up at all.
+
+The protocol already models this, which is the good news:
+- `server/src/voice/active-voice-clients.mjs` understands `textOnly`, `inputEnabled` and
+  `outputEnabled`; a `textOnly` client is deliberately excluded from voice arbitration.
+- `web/src/realtime/useRealtimeVoice.js` derives all three from `enabled` / `inputOnlyMute` /
+  `wakeWordOnly`, so a text-only client is already a supported shape rather than a new concept.
+
+So the work is mostly product, not protocol: a visible mode switch that persists, a UI that hides
+voice affordances in text mode, and — the part needing care — making sure a text-mode start does
+not wait on, or launch, the speech service. The launcher currently starts speech before the app
+(`Start My Voice App.ps1`), so a text mode that genuinely skips it needs the launcher to know the
+mode too, or the app to tolerate speech being absent.
 
 ## Next up (nothing agreed yet — Jake's call)
 - ⏳ **Compare streamed chunks against reported tokens.** The turn snapshot records both. If
