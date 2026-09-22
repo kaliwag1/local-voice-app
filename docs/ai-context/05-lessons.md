@@ -62,3 +62,14 @@
     feature rather than a rejected call. `isAppWindow()` now also allows the Settings window,
     for listing models and setting the voice only — switching models and context windows stay
     with the conversation window.
+24. **Tests here can read your real config.** The runtime environment defaults to
+    `~/.config/qwaudio`, `config.env` and `~/.config/opencode/opencode.json`, and several tests
+    imported modules that load them. They passed only on a machine configured like upstream's,
+    and editing personal config (translating ASSISTANT.md) broke them. When a test fails right
+    after a config change, suspect the test; pin what it depends on - a provider, an `env: {}`,
+    the shipped file - rather than reverting the config.
+25. **Never resample a stream one block at a time.** A polyphase filter restarted per block
+    leaves a seam at every block edge, heard as grit that exists only while audio flows.
+    Upstream has a stateful `_StreamingFIRResampler`; use it, one instance per stream. And check
+    every stage: this pipeline had two chunked conversions, and fixing either alone changed
+    almost nothing.

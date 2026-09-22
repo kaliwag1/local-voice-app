@@ -2,6 +2,53 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-23 — no more grit riding on the voice (Claude)
+- The static Jake heard during speech (silent in the gaps) was two resampling stages, each
+  converting every 32 ms block on its own. Pocket TTS generates at 24 kHz; the handler resampled
+  each block to the 16 kHz pipeline, then `AudioHandler.encode_audio_chunk` resampled each block
+  again up to the client's 24 kHz. A polyphase filter restarted per block leaves a discontinuity
+  at every seam - 31 a second, only while audio flows.
+- Measured which stage mattered before changing anything: both chunked -38.0 dB relative to
+  speech; fix only the TTS stage -38.2; fix only the output stage -42.6; fix both -78.6. Each
+  stage leaves its own seams, so both had to change.
+- New `scripts/runtime/speech-adapter/seamless_audio.py`, installed separately from the
+  reasoning adapter so an upstream change disables only this fix. Both stages use upstream's own
+  `_StreamingFIRResampler`, already used for its OpenAI-compatible TTS. Rates and block sizes
+  are unchanged.
+  - TTS stage: `process()` is not overridden. It skips resampling when the model's rate equals
+    the pipeline's, so `setup` wraps the model to report 16 kHz and yield audio converted as one
+    stream, fresh per utterance. Cancellation and speculative-turn logic run as shipped.
+  - Output stage: a hash-checked copy of `encode_audio_chunk` differing only in the resample
+    line - one resampler per response per connection.
+  - The streaming resampler clips, so upstream's unclipped int16 cast can no longer wrap a peak.
+- Verification: through the real `PocketTTSHandler` with the real wrapped `setup` and a real
+  sentence, 185 blocks all exactly 512 int16 samples; artifact -36.8 dB before, -78.4 dB after,
+  against a continuous reference built from the model's raw audio captured in the same run.
+  14 new tests (chunk boundaries do not change the output; one clean filter per utterance, also
+  after an interrupted one; no wrap at full scale; one converter per response, per connection,
+  per rate; blocks joined equal one pass), the existing 9 still pass, and all three adapter
+  pieces load through the launcher's own `ZD_VOICE_REASONING_ADAPTER=1` + `PYTHONPATH` path.
+- Not yet verified by ear. Python changes need only a speech restart, no rebuild.
+
+## 2026-09-23 — every test suite passes (Claude)
+- Eleven failures carried as "pre-existing" for several sessions; none was a product bug. Most
+  came from tests reading this PC's own configuration (see lesson 24):
+  - two server tests asserted 千问Audio in the user's `~/.config/qwaudio/ASSISTANT.md`, which the
+    2026-09-19 translation changed; one now checks the shipped default, one that the identity
+    section reaches the prompt in any language;
+  - the gateway handshake harness took `config.audioProvider` from this machine's `config.env`
+    (Speech-to-Speech refuses mid-session voice changes); it now pins `DEFAULT_REALTIME_PROVIDER`;
+  - an OpenCode auth test read the real `opencode.json`, whose local LM Studio provider correctly
+    counts as set up; it now passes an empty env.
+- The rest were tests left behind by code: upstream `c7509cb` added eight GPT-Live/Google Live
+  settings (the same failures exist on upstream `main`); `ef6f06a` added `paths`/`writes` to tool
+  updates; `8db685e` gave `PermissionActions` state, so the three decision buttons became a
+  stateless `PermissionDecisions` component with identical markup. A Tailscale Serve test slept a
+  fixed 40 ms before checking for SIGKILL; it now waits for the signal itself.
+- Result: root 192/193 (one skipped), desktop 298/298, web 191/191, server 1315/1315. The server
+  suite then passed 8 full runs in a row; one earlier run had a single failure that never
+  reproduced, so an occasional timing flake elsewhere cannot be ruled out.
+
 ## 2026-09-19 — Settings can read and set the local voice (Claude)
 - The voice row never appeared: `qwen-audio-agent:local-models-list` and `local-voice-set` throw
   unless the sender is the conversation window, so the Settings panel's first call failed and it

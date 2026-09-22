@@ -33,10 +33,40 @@ prints an unavailable diagnostic and leaves ordinary speech working. To upgrade,
 review upstream cancellation/output contracts, adapt this file, run the tests,
 then update the hashes and verify in the desktop app. Do not just change hashes.
 
+## Seamless audio (`seamless_audio.py`)
+
+A separate module, installed by the same opt-in but on its own, so an upstream
+change to the audio path turns off only this fix.
+
+Pocket TTS generates at 24 kHz. Upstream resampled each 32 ms block down to the
+16 kHz pipeline on its own, then the realtime output resampled each block again,
+up to the client's 24 kHz. A polyphase filter restarted at every block leaves a
+discontinuity at each seam: 31 a second, only while speaking, heard as grit riding
+on the voice. Fixing either stage alone barely helps, because each leaves its own
+seams. Measured through the real upstream generator on a real utterance:
+-36.8 dB relative to speech before, -78.4 dB after.
+
+Both stages now use `_StreamingFIRResampler`, the stateful resampler upstream
+already uses for its OpenAI-compatible TTS. Every sample rate and block size is
+unchanged; only how the conversion is carried out differs.
+
+- **TTS stage.** `PocketTTSHandler.process` is not overridden. It only resamples
+  when the model's rate differs from the pipeline's, so `setup` wraps the model to
+  report the pipeline rate and yield audio already converted as one stream, with a
+  fresh resampler per utterance. The generator's cancellation and speculative-turn
+  logic runs as shipped. The streaming resampler also clips, so upstream's
+  unclipped int16 cast can no longer wrap a loud peak.
+- **Output stage.** `AudioHandler.encode_audio_chunk` is a hash-checked copy whose
+  only change is the resampling line: one resampler per response per connection.
+
+It checks the source hashes of `PocketTTSHandler.setup`, `PocketTTSHandler.process`
+and `AudioHandler.encode_audio_chunk` before installing.
+
 From the app repository on Windows:
 
 ```
 ../.voice-env/Scripts/python.exe scripts/runtime/speech-adapter/test_reasoning_adapter.py
+../.voice-env/Scripts/python.exe scripts/runtime/speech-adapter/test_seamless_audio.py
 ```
 
 The adapter covers streamed Chat Completions, shared by both Bonsai variants and

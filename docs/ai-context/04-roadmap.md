@@ -2,73 +2,31 @@
 
 Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 
-## Current status (2026-09-19, ~03:00, end of Claude session 3)
-- Both repos pushed and clean: app `jake/local-voice-app` at `dc237e0`, launcher `main` at
-  `0bdb735`. Jake pushes with `Push To GitHub.cmd`.
-- The installed build in `dist\desktop-panel` matches those commits (rebuilt and relaunched
-  after the last change).
-- **Verified live this session:** quitting the app releases the Bonsai server (VRAM 11,992 →
-  2,628 MiB); the rebuild script releases it too (11,703 → 2,262 MiB); the app starts against a
-  stale Gateway lease naming a recycled PID; the composer layout, context ring, chat rows and
-  row menus render and position correctly (measured in the live DOM through the Gateway UI);
-  the model picker switches models; English replies after the ASSISTANT.md translation.
-- **Awaiting Jake's live check:** the context ring filling on a real turn and its window-size
-  buttons; the live token/rate/elapsed line; Settings → Application → Voice; the chat-row ⋮
-  menu and its P/R/A/D shortcuts; the dot pulsing while the model works; the send↔stop swap;
-  and lists rendering as lists after the speech-adapter fix.
-- **Known gaps, deliberate:** only the open chat's dot can pulse (activity and tasks are both
-  per-session, so the client cannot know about other chats); the live line shows characters,
-  not tokens, until streamed chunks are shown to track reported completion tokens; a crash or
-  force-kill still orphans the Bonsai server.
-- **Agreed next, with Jake:** the static around spoken words (see the section below).
-  Also agreed, not started: a deafen key and separate voice / text-only modes.
-  He finds it noticeable and annoying, and wants it done in a fresh session.
+## Current status (2026-09-23, Claude session 4)
+- Branch `jake/local-voice-app`; see `git log` for the exact head. Jake pushes with
+  `Push To GitHub.cmd`.
+- **Every test suite passes**: root 192/193 (one skipped), desktop 298/298, web 191/191,
+  server 1315/1315, speech adapter 9 + 14. Treat any new failure as real, not "pre-existing".
+  One unreproduced server flake was seen once in 11 full runs.
+- **Speech static fixed in code, awaiting Jake's ear.** Both resampling stages now stream
+  (`seamless_audio.py`); measured -36.8 dB → -78.4 dB through the real generator. Needs a
+  speech restart only, no rebuild. If it still sounds gritty, the measurement approach and the
+  ruled-out causes are in 03-changes (2026-09-23) and the 2026-09-19 entries.
+- **Awaiting Jake's live check, from session 3:** context ring filling and its window sizes;
+  the live token/rate/elapsed line; Settings → Application → Voice (the IPC fix landed
+  2026-09-19); chat-row ⋮ menu and P/R/A/D; the pulsing dot; send↔stop; lists rendering as lists.
+- **Known gaps, deliberate:** only the open chat's dot can pulse; the live line shows
+  characters until chunks are shown to track reported tokens; a crash or force-kill still
+  orphans the Bonsai server.
 - Still never checked live from earlier sessions: auto-titles/rename/pin, Settings → Health,
   "Look at my screen", physical microphone input, a full end-to-end OpenCode task.
 
-## Next task: the static around spoken words (agreed with Jake, 2026-09-19)
-
-**Symptom.** A broadband grit rides on the voice while it speaks. Silent in the gaps, so it is
-modulated with the audio, not a noise floor.
-
-**Cause, measured.** `speech_to_speech/TTS/pocket_tts_handler.py` streams 512-sample blocks at
-the pipeline's 16 kHz. Pocket TTS generates at 24 kHz, so each block is resampled 24k → 16k
-**independently** with `resample_poly`, then padded or trimmed to exactly `blocksize`. Polyphase
-filters carry state across a stream; restarting per block leaves a discontinuity at every seam,
-31.2 per second, only while audio flows.
-
-Measured on a real utterance (cosette, one sentence): artifact **−41 dB relative to speech**,
-and the error is *entirely* at the block seams — the middle of each block matches a continuous
-resample exactly. Reproduce by resampling the same audio per-block versus in one pass and
-subtracting.
-
-**Ruled out, with evidence, so do not re-investigate:**
-- Client decode (`web/src/realtime/audio.js`) is correct: little-endian int16, `/0x8000`.
-- Sample rates match end to end: the service upsamples 16k → 24k for the client
-  (`api/openai_realtime/handlers/audio.py`), and the browser resamples to the device rate.
-- Not the voice preset. Presets differ in level and in floor between words (cosette is the
-  quietest and hissiest there, azelma and jean the cleanest) but the seam artifact is a fixed
-  ratio to the signal, so it is identical for all of them.
-- A latent bug that does not fire: the handler casts with `(x * 32768).astype(np.int16)` and no
-  clipping, so a sample at or above full scale wraps to a full-scale spike. The package's own
-  `utils.resample()` clips properly. Real output peaks at 0.164, so it never triggers today —
-  worth fixing alongside, and it would bite a loud cloned voice.
-
-**Options, hardest part first.** The resampling is inline inside the handler's streaming
-generator, so there is no natural seam to hook.
-1. Override `process()` through the app-owned adapter, resampling continuously (carry a filter
-   tail across blocks, reset per utterance). Correct, but duplicates upstream cancellation and
-   speculative-turn logic, which is the real risk: that logic is what keeps interruptions and
-   stale turns working.
-2. Give the module a stateful resampler and reset it when an utterance starts. Smaller diff,
-   but needs a reliable per-utterance reset signal.
-3. Emit 24 kHz from the TTS and skip the resample entirely. Cleanest audio, but the pipeline is
-   16 kHz throughout (`PIPELINE_SAMPLE_RATE`) and the output stage would then resample wrongly,
-   so it is a pipeline-wide change touching the microphone and VAD paths too.
-
-Whatever the route: it is `speech-adapter` work with version and source-hash checks, tests in
-`test_reasoning_adapter.py`, then a rebuild and a listen. Verify by measuring the seam error
-again and by hearing it, and re-check that interruption still cuts speech off cleanly.
+## Recently done: the static around spoken words (2026-09-23)
+🔧 Coded, tested and measured; awaiting a listen. Two per-block resampling stages, both now
+streaming through upstream's own `_StreamingFIRResampler`. Full account in 03-changes.
+If it regresses after a package update, `seamless_audio` disables itself on a hash mismatch and
+speech falls back to upstream's behaviour - check by running the adapter's startup path by hand
+(the speech process's stderr is not logged).
 
 ## Agreed features, not started (2026-09-19)
 
