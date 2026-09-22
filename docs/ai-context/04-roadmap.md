@@ -70,9 +70,12 @@ not wait on, or launch, the speech service. The launcher currently starts speech
 mode too, or the app to tolerate speech being absent.
 
 ## Next up (nothing agreed yet — Jake's call)
-- ⏳ **Compare streamed chunks against reported tokens.** The turn snapshot records both. If
-  chunks track completion tokens on this runtime, the live line can show real token counts
-  instead of characters, with evidence rather than an assumption.
+- ✅ **Compare streamed chunks against reported tokens** — answered 2026-09-23: they do not.
+  On the voice path the answer text arrives per spoken sentence, not per token; the one stored
+  turn since the counters went in delivered a 58-character reply as a single chunk. The live line
+  keeps showing characters. Same turn had no usage recorded, so worth watching whether the
+  context ring stays "unmeasured" on Gemma 4 26B specifically (it measured fine on Bonsai and
+  Qwen3.5 9B).
 - ⏳ **Per-session busy flag** on `api/conversations`, so background chats can pulse too.
 - ⏳ **Graceful quit for the rebuild script.** It force-kills, which skips the app's shutdown.
   The script now releases the model server itself, but a real quit would also spare the lease.
