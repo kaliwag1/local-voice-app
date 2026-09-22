@@ -25,6 +25,7 @@ const DEFAULTS = {
   wakeShortcut: 'CommandOrControl+Shift+Space',
   micMode: 'always',
   pushToTalkKey: 'F9',
+  deafenShortcut: 'CommandOrControl+Alt+D',
   wakeWordEnabled: false,
   ...realtimeSettingsValues(),
   agentProtocol: 'none',
@@ -44,6 +45,7 @@ const CLIENT_SETTING_KEYS = {
   wakeShortcut: 'QWEN_AUDIO_DESKTOP_WAKE_SHORTCUT',
   micMode: 'QWEN_AUDIO_MIC_MODE',
   pushToTalkKey: 'QWEN_AUDIO_PUSH_TO_TALK_KEY',
+  deafenShortcut: 'QWEN_AUDIO_DEAFEN_SHORTCUT',
   wakeWordEnabled: 'QWEN_AUDIO_WAKE_WORD_ENABLED',
   language: 'QWEN_AUDIO_DESKTOP_LANGUAGE',
 }
@@ -129,6 +131,17 @@ export function cleanPushToTalkKey(value) {
   const cleaned = cleanWakeShortcut(key)
   return cleaned === DEFAULTS.wakeShortcut && key !== DEFAULTS.wakeShortcut
     ? DEFAULTS.pushToTalkKey
+    : cleaned
+}
+
+// Deafen: a system-wide toggle that silences the assistant's voice while the text keeps
+// arriving. '' = off; an unusable key falls back to the default.
+export function cleanDeafenShortcut(value) {
+  const key = String(value ?? DEFAULTS.deafenShortcut).trim()
+  if (key === '' || key.toLowerCase() === 'off' || key.toLowerCase() === 'none') return ''
+  const cleaned = cleanWakeShortcut(key)
+  return cleaned === DEFAULTS.wakeShortcut && key !== DEFAULTS.wakeShortcut
+    ? DEFAULTS.deafenShortcut
     : cleaned
 }
 
@@ -281,6 +294,11 @@ export function parseSettings(content = '', fallback = {}) {
         ? values.QWEN_AUDIO_PUSH_TO_TALK_KEY
         : fallback.QWEN_AUDIO_PUSH_TO_TALK_KEY ?? DEFAULTS.pushToTalkKey,
     ),
+    deafenShortcut: cleanDeafenShortcut(
+      Object.hasOwn(values, 'QWEN_AUDIO_DEAFEN_SHORTCUT')
+        ? values.QWEN_AUDIO_DEAFEN_SHORTCUT
+        : fallback.QWEN_AUDIO_DEAFEN_SHORTCUT ?? DEFAULTS.deafenShortcut,
+    ),
     wakeWordEnabled: String(
       configured(
         values,
@@ -352,6 +370,7 @@ export function normalizeSettings(settings = {}) {
     ),
     micMode: cleanMicMode(settings.micMode ?? DEFAULTS.micMode),
     pushToTalkKey: cleanPushToTalkKey(settings.pushToTalkKey ?? DEFAULTS.pushToTalkKey),
+    deafenShortcut: cleanDeafenShortcut(settings.deafenShortcut ?? DEFAULTS.deafenShortcut),
     wakeWordEnabled: Boolean(settings.wakeWordEnabled),
     ...normalizeRealtimeSettings(settings, realtimeProvider),
     agentProtocol,

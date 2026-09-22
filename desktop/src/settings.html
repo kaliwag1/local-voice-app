@@ -341,6 +341,27 @@
                 </div>
               </div>
 
+              <div class="setting-row">
+                <label for="deafen-key">静音助手键</label>
+                <div class="shortcut-field">
+                  <input id="deafen-key" type="hidden" value="CommandOrControl+Alt+D" />
+                  <button
+                    id="record-deafen-key"
+                    class="shortcut-recorder"
+                    type="button"
+                    title="点击后按下新的快捷键"
+                  >Ctrl + Alt + D</button>
+                  <button
+                    id="clear-deafen-key"
+                    class="shortcut-reset"
+                    type="button"
+                    aria-label="关闭静音助手键"
+                    title="关闭静音助手键"
+                  ><img src="./assets/icons/删除.svg" alt="" /></button>
+                  <span class="toggle-hint">在任何应用中按一下，不再朗读回复，文字照常显示；再按一下恢复</span>
+                </div>
+              </div>
+
               <div class="setting-row" id="local-voice-row" hidden>
                 <label for="local-voice">朗读音色</label>
                 <div class="setting-inline">

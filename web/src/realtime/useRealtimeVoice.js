@@ -27,7 +27,10 @@ import {
   createMicrophoneCaptureLifecycle,
   microphoneErrorKind,
 } from './microphone-capture.js'
-import { confirmTrackedPlaybackStart } from './playback-lifecycle.js'
+import {
+  confirmTrackedPlaybackStart,
+  planPlaybackDeafen,
+} from './playback-lifecycle.js'
 import { t } from '../i18n.js'
 import {
   createGatewayWebSocket,
@@ -334,25 +337,16 @@ export default function useRealtimeVoice({
     }
   }, [sendSocketEvent])
 
-  const stopPlayback = useCallback((reason = '') => {
+  // Silences and forgets everything scheduled, without telling the Gateway.
+  const resetPlayback = useCallback(() => {
     const playback = playbackRef.current
-    const activeResponseIds = new Set([
-      ...playback.startTimers.keys(),
-      ...playback.endTimers.keys(),
-      ...playback.startedResponses,
-      ...playback.sourceCounts.keys(),
-      ...(playback.queue?.responseIds?.() || []),
-    ])
     for (const timer of playback.startTimers.values()) {
       clearTimeout(timer)
     }
     for (const timer of playback.endTimers.values()) {
       clearTimeout(timer)
     }
-    for (const responseId of activeResponseIds) {
-      sendPlaybackEvent(GatewayClientEvent.PLAYBACK_CANCELLED, responseId, reason)
-    }
-    playbackRef.current.sources.forEach(source => {
+    playback.sources.forEach(source => {
       try {
         source.stop()
       } catch {
@@ -372,7 +366,42 @@ export default function useRealtimeVoice({
       failedResponses: new Set(),
       queue: null,
     }
-  }, [sendPlaybackEvent])
+  }, [])
+
+  const stopPlayback = useCallback((reason = '') => {
+    const playback = playbackRef.current
+    const activeResponseIds = new Set([
+      ...playback.startTimers.keys(),
+      ...playback.endTimers.keys(),
+      ...playback.startedResponses,
+      ...playback.sourceCounts.keys(),
+      ...(playback.queue?.responseIds?.() || []),
+      // Responses being consumed silently are interrupted like audible ones.
+      ...mutedPlaybackResponses.current,
+    ])
+    mutedPlaybackResponses.current.clear()
+    for (const responseId of activeResponseIds) {
+      sendPlaybackEvent(GatewayClientEvent.PLAYBACK_CANCELLED, responseId, reason)
+    }
+    resetPlayback()
+  }, [resetPlayback, sendPlaybackEvent])
+
+  // Deafen: stop the sound but let the replies run their course, so the
+  // transcript keeps arriving. A response silenced here stays silent until
+  // its audio.done, even if the speaker is switched back on meanwhile.
+  const deafenPlayback = useCallback(() => {
+    const plan = planPlaybackDeafen(playbackRef.current)
+    resetPlayback()
+    for (const responseId of plan.started) {
+      sendPlaybackEvent(GatewayClientEvent.PLAYBACK_STARTED, responseId)
+    }
+    for (const responseId of plan.muted) {
+      mutedPlaybackResponses.current.add(responseId)
+    }
+    for (const responseId of plan.ended) {
+      sendPlaybackEvent(GatewayClientEvent.PLAYBACK_ENDED, responseId)
+    }
+  }, [resetPlayback, sendPlaybackEvent])
 
   const finishPlaybackIfReady = useCallback(responseId => {
     if (!responseId) return
@@ -655,7 +684,11 @@ export default function useRealtimeVoice({
         stopPlayback(event.reason || '')
       }
       if (event.type === GatewayServerEvent.AUDIO_DELTA) {
-        if (outputMutedRef.current || !audioRef.current) {
+        if (
+          outputMutedRef.current
+          || !audioRef.current
+          || mutedPlaybackResponses.current.has(event.responseId)
+        ) {
           consumeMutedAudio(event.responseId)
         } else {
           play(event.audio, event.sampleRate, event.responseId)
@@ -805,8 +838,8 @@ export default function useRealtimeVoice({
   ])
 
   useEffect(() => {
-    if (outputMuted) stopPlayback()
-  }, [outputMuted, stopPlayback])
+    if (outputMuted) deafenPlayback()
+  }, [outputMuted, deafenPlayback])
 
   useEffect(() => {
     pendingManualInputsRef.current = []

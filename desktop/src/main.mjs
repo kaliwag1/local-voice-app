@@ -97,6 +97,7 @@ import {
 import { createGracefulShutdown, withDeadline } from './graceful-shutdown.mjs'
 import { DesktopPresence } from './desktop-presence.mjs'
 import { createPushToTalkHook } from './push-to-talk-hook.mjs'
+import { GlobalToggleShortcut } from './global-toggle-shortcut.mjs'
 import { createElectronGatewayCredentialStore } from './gateway-credential-store.mjs'
 import { createLocalModelSwitcher } from './local-model-switch.mjs'
 import { transcribeAudioFile } from './local-audio-transcription.mjs'
@@ -294,6 +295,16 @@ const pushToTalkHook = createPushToTalkHook({
     mainWindow.webContents.send('qwen-audio-agent:push-to-talk', { held })
   },
 })
+// System-wide deafen toggle. The conversation window owns the muted state; this only
+// forwards the key press, so it works while another app has focus.
+const deafenShortcut = new GlobalToggleShortcut({
+  globalShortcut,
+  onPress: () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    mainWindow.webContents.send('qwen-audio-agent:deafen-toggle')
+  },
+})
+
 let pushToTalkGlobal = false
 async function applyPushToTalkKey(accelerator, micMode = 'push-to-talk') {
   pushToTalkGlobal = await pushToTalkHook.setAccelerator(micMode === 'push-to-talk' ? accelerator : '')
@@ -589,6 +600,7 @@ async function loadQwenAudioAgent(window) {
       micMode: settings.micMode,
       pushToTalkKey: settings.pushToTalkKey,
       pushToTalkGlobal,
+      deafenShortcut: settings.deafenShortcut,
       language: effectiveDesktopLanguage(settings.language, app.getLocale()),
       surfaceMode: desktopSurfaceMode,
       sessionId: desktopConversationSessionId,
@@ -609,6 +621,7 @@ function sendDesktopClientSettings(window, settings) {
     micMode: settings.micMode ?? 'always',
     pushToTalkKey: settings.pushToTalkKey ?? '',
     pushToTalkGlobal,
+    deafenShortcut: settings.deafenShortcut ?? '',
     language: effectiveDesktopLanguage(settings.language, app.getLocale()),
   })
 }
@@ -1249,6 +1262,21 @@ ipcMain.handle('qwen-audio-agent:wake-shortcut-resume', event => {
   return desktopPresence.resumeShortcut()
 })
 
+ipcMain.handle('qwen-audio-agent:deafen-shortcut-pause', event => {
+  if (!settingsWindow || event.sender !== settingsWindow.webContents) {
+    throw new Error('Only the Settings window can change the deafen key.')
+  }
+  deafenShortcut.pause()
+  return true
+})
+
+ipcMain.handle('qwen-audio-agent:deafen-shortcut-resume', event => {
+  if (!settingsWindow || event.sender !== settingsWindow.webContents) {
+    throw new Error('Only the Settings window can change the deafen key.')
+  }
+  return deafenShortcut.resume()
+})
+
 ipcMain.on('qwen-audio-agent:open-external', async (event, value) => {
   if (!settingsWindow || event.sender !== settingsWindow.webContents) return
   let target
@@ -1293,6 +1321,7 @@ ipcMain.handle('qwen-audio-agent:settings-load', async event => {
     firstRun: !configExistedAtLaunch,
     runtimeError: lastRuntimeError || null,
     wakeShortcutRegistered: desktopPresence.shortcutRegistered,
+    deafenShortcutRegistered: deafenShortcut.registered,
     pushToTalkGlobal,
     restartRequired: false,
   }
@@ -1564,6 +1593,9 @@ async function applyDesktopSettings(settings) {
     previous.autoHideSeconds !== normalized.autoHideSeconds
   )
   const wakeShortcutChanged = previous.wakeShortcut !== normalized.wakeShortcut
+  const deafenShortcutChanged = (
+    previous.deafenShortcut !== normalized.deafenShortcut
+  )
   const wakeWordChanged = (
     previous.wakeWordEnabled !== normalized.wakeWordEnabled
   )
@@ -1602,10 +1634,18 @@ async function applyDesktopSettings(settings) {
   ) {
     throw new Error('这个显示快捷键已被其他应用占用，请选择另一个')
   }
+  if (
+    deafenShortcutChanged
+    && !deafenShortcut.set(normalized.deafenShortcut)
+  ) {
+    if (wakeShortcutChanged) desktopPresence.registerShortcut(previous.wakeShortcut)
+    throw new Error('Another app is already using that deafen key. Choose a different one.')
+  }
   try {
     desktopSettingsStore.save(settings)
   } catch (error) {
     if (wakeShortcutChanged) desktopPresence.registerShortcut(previous.wakeShortcut)
+    if (deafenShortcutChanged) deafenShortcut.set(previous.deafenShortcut)
     throw error
   }
   desktopLanguage = normalized.language
@@ -1632,6 +1672,7 @@ async function applyDesktopSettings(settings) {
       orbSkin: orbSkinChanged,
       autoHide: autoHideChanged,
       wakeShortcut: wakeShortcutChanged,
+      deafenShortcut: deafenShortcutChanged,
       wakeWord: wakeWordChanged,
       language: languageChanged,
     },
@@ -1690,6 +1731,7 @@ async function applyDesktopSettings(settings) {
     restartRequired: false,
     runtime,
     wakeShortcutRegistered: desktopPresence.shortcutRegistered,
+    deafenShortcutRegistered: deafenShortcut.registered,
     pushToTalkGlobal,
   }
 }
@@ -1815,6 +1857,11 @@ if (!app.requestSingleInstanceLock()) {
         accelerator: initialSettings.wakeShortcut,
       })
     }
+    if (!deafenShortcut.set(initialSettings.deafenShortcut)) {
+      logger.warn('desktop.deafen_shortcut_unavailable', {
+        accelerator: initialSettings.deafenShortcut,
+      })
+    }
     desktopUpdater = createDesktopUpdater({
       currentVersion: app.getVersion(),
       // Only installer builds ship app-update.yml. An unpacked, self-built
@@ -1870,6 +1917,7 @@ if (!app.requestSingleInstanceLock()) {
     app,
     cleanup: async () => {
       logger.info('desktop.stopping')
+      deafenShortcut.stop()
       desktopPresence.destroy()
       desktopWakeWord.stop()
       pushToTalkHook.stop()

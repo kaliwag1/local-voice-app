@@ -16,6 +16,7 @@ export function initialDesktopClientSettings(search = '') {
     micMode: params.get('micMode') === 'push-to-talk' ? 'push-to-talk' : 'always',
     pushToTalkKey: params.get('pushToTalkKey') ?? 'F9',
     pushToTalkGlobal: params.get('pushToTalkGlobal') === 'true',
+    deafenShortcut: params.get('deafenShortcut') ?? 'CommandOrControl+Alt+D',
     language: params.get('lang') || '',
   }
 }
@@ -40,6 +41,9 @@ export function applyDesktopClientSettings(current, update = {}) {
     pushToTalkGlobal: typeof update.pushToTalkGlobal === 'boolean'
       ? update.pushToTalkGlobal
       : current.pushToTalkGlobal,
+    deafenShortcut: typeof update.deafenShortcut === 'string'
+      ? update.deafenShortcut
+      : current.deafenShortcut,
     language: update.language || current.language,
   }
 }

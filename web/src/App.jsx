@@ -164,6 +164,14 @@ function OrbControlIcon({ type, muted = false, collapsed = false }) {
       {muted && <path d="M4 4 20 20" />}
     </svg>
   }
+  if (type === 'speaker') {
+    return <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4v-5Z" />
+      {muted
+        ? <path d="m16 9.5 5 5m0-5-5 5" />
+        : <path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" />}
+    </svg>
+  }
   if (type === 'settings') {
     return <svg viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="12" cy="12" r="3" />
@@ -210,6 +218,7 @@ export default function App() {
     micMode,
     pushToTalkKey,
     pushToTalkGlobal,
+    deafenShortcut,
   } = desktopClientSettings
   const pushToTalkMode = desktopOrbMode && micMode === 'push-to-talk' && Boolean(pushToTalkKey)
   // `t()` reads the module-level runtime language. Keeping a revision in
@@ -243,6 +252,9 @@ export default function App() {
   ))
   // Push-to-talk: true only while the key is down (global hook or in-window fallback).
   const [pushToTalkDown, setPushToTalkDown] = useState(false)
+  // Deafen: the assistant's voice is silenced while its replies keep arriving as text.
+  // Deliberately not remembered, so a restart never leaves the speaker quietly off.
+  const [deafened, setDeafened] = useState(false)
   const [waitingForVoice, setWaitingForVoice] = useState(false)
   const [messages, setMessages] = useState([])
   const [turnActivities, setTurnActivities] = useState({})
@@ -943,7 +955,9 @@ export default function App() {
     sessionId,
     enabled: voiceEnabled || voiceEnabledForWakeWord,
     suspended: desktopOrbMode && desktopLifecycle === 'hidden' && !wakeWordEnabled,
-    outputMuted: false,
+    // Deafen silences playback only; the reply is still generated and its
+    // transcript keeps streaming.
+    outputMuted: deafened,
     // WebUI and desktop share one control contract: the toggle only changes
     // microphone capture and never closes or interrupts the output stream.
     inputOnlyMute: true,
@@ -1413,6 +1427,19 @@ export default function App() {
     else enableVoice()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pushToTalkMode])
+  // The deafen key is registered system-wide by the desktop main process.
+  useEffect(() => {
+    const subscribe = window.qwenAudioAgentDesktop?.onDeafenToggle
+    if (typeof subscribe !== 'function') return undefined
+    return subscribe(() => setDeafened(value => !value))
+  }, [])
+  const deafenLabel = deafened
+    ? 'Hear the assistant again'
+    : 'Deafen: silence the assistant, keep the text'
+  const deafenHint = desktopOrbMode && deafenShortcut
+    ? `${deafenLabel} (${acceleratorLabel(deafenShortcut, navigator.platform)})`
+    : deafenLabel
+
   const pushToTalkHint = pushToTalkMode
     ? `Hold ${acceleratorLabel(pushToTalkKey, navigator.platform)} to talk${pushToTalkGlobal ? ' (works from any app)' : ' (chat window focused)'}`
     : ''
@@ -2026,6 +2053,13 @@ export default function App() {
         onClick={resetSession}
         aria-label={t('新会话')}
       >{t('新会话')}</button>}
+      <button
+        className={`ghost deafen${deafened ? ' active' : ''}`}
+        onClick={() => setDeafened(value => !value)}
+        aria-label={deafenHint}
+        aria-pressed={deafened}
+        title={deafenHint}
+      ><OrbControlIcon type="speaker" muted={deafened} /></button>
       <button
         className={[
           'voice',

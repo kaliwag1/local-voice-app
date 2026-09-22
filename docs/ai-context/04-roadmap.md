@@ -5,9 +5,11 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 ## Current status (2026-09-23, Claude session 4)
 - Branch `jake/local-voice-app`; see `git log` for the exact head. Jake pushes with
   `Push To GitHub.cmd`.
-- **Every test suite passes**: root 192/193 (one skipped), desktop 298/298, web 191/191,
+- **Every test suite passes**: root 192/193 (one skipped), desktop 309/309, web 196/196,
   server 1315/1315, speech adapter 9 + 14. Treat any new failure as real, not "pre-existing".
   One unreproduced server flake was seen once in 11 full runs.
+- **Deafen key built, awaiting a rebuild and a live check** (Ctrl+Alt+D, or the speaker button
+  left of the mic). See the roadmap entry below for what to try.
 - **Speech static fixed in code, awaiting Jake's ear.** Both resampling stages now stream
   (`seamless_audio.py`); measured -36.8 dB → -78.4 dB through the real generator. Needs a
   speech restart only, no rebuild. If it still sounds gritty, the measurement approach and the
@@ -31,6 +33,14 @@ speech falls back to upstream's behaviour - check by running the adapter's start
 ## Agreed features, not started (2026-09-19)
 
 ### Deafen key — silence the speaker without stopping the conversation
+🔧 Built 2026-09-23, awaiting a rebuild and a live check. Jake chose **local mute** and a
+**system-wide Ctrl+Alt+D** (changeable in Settings → Application → Deafen key; clear it to turn
+it off). Also a speaker button left of the mic, amber while deafened. Not remembered across
+restarts on purpose. Account in 03-changes. To check live: deafen mid-reply - the sound should
+stop at once and the rest of the reply's text still arrive; un-deafen - the *next* reply is
+audible (the one already silenced stays silent); press the key with another app focused.
+
+Original notes:
 A key that stops you hearing the assistant, so it can keep working while you are on a call, in
 a room with other people, or just tired of it talking. Text keeps arriving either way.
 

@@ -775,6 +775,10 @@ header .voice.active { color: var(--text); border-color: var(--accent); backgrou
 header .voice[aria-disabled="true"] { opacity: .7; cursor: default; }
 header .voice.waiting { color: var(--accent-text); border-color: var(--accent-border); }
 header .ghost.active { color: var(--text); border-color: var(--accent-border); background: var(--accent-soft); }
+/* Deafen is easy to forget while it is on, so it reads as a warning rather than a mode. */
+header .deafen { display: grid; place-items: center; width: 39px; height: 39px; padding: 0; }
+header .deafen svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+header .deafen.active { color: var(--warning); border-color: var(--warning); background: var(--fill); }
 
 /* 资料库面板：夹在 header 与主对话区之间，可折叠，不抢对话的位置 */
 .knowledge-panel {

@@ -51,6 +51,7 @@ export function desktopOrbUrl(value, {
   micMode = 'always',
   pushToTalkKey,
   pushToTalkGlobal = false,
+  deafenShortcut,
   language = '',
   surfaceMode = 'orb',
   sessionId = '',
@@ -70,6 +71,7 @@ export function desktopOrbUrl(value, {
   if (micMode === 'push-to-talk') url.searchParams.set('micMode', 'push-to-talk')
   if (typeof pushToTalkKey === 'string') url.searchParams.set('pushToTalkKey', pushToTalkKey)
   if (pushToTalkGlobal) url.searchParams.set('pushToTalkGlobal', 'true')
+  if (typeof deafenShortcut === 'string') url.searchParams.set('deafenShortcut', deafenShortcut)
   if (language) url.searchParams.set('lang', language)
   if (surfaceMode === 'panel') url.searchParams.set('surface', 'panel')
   const normalizedSessionId = normalizeConversationSessionId(sessionId)

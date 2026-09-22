@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import {
   applySettingsEnvironment,
+  cleanDeafenShortcut,
   normalizeSettings,
   parseSettings,
   realtimeSettingsConfigured,
@@ -14,6 +15,7 @@ const REALTIME_DEFAULTS = {
   wakeShortcut: 'CommandOrControl+Shift+Space',
   micMode: 'always',
   pushToTalkKey: 'F9',
+  deafenShortcut: 'CommandOrControl+Alt+D',
   wakeWordEnabled: false,
   realtimeProvider: 'dashscope',
   realtimeBaseUrl: 'wss://dashscope.aliyuncs.com/api-ws/v1/realtime',
@@ -659,4 +661,16 @@ test('a cleared setting releases its environment slot', () => {
   const env = { QWEN_AUDIO_AGENT_BACKEND_MODEL: 'pinned-model' }
   applySettingsEnvironment({ backendModel: '' }, env)
   assert.equal('QWEN_AUDIO_AGENT_BACKEND_MODEL' in env, false)
+})
+
+test('the deafen key defaults to Ctrl+Alt+D, can be turned off, and survives a round trip', () => {
+  assert.equal(parseSettings('').deafenShortcut, 'CommandOrControl+Alt+D')
+  assert.equal(cleanDeafenShortcut(''), '')
+  assert.equal(cleanDeafenShortcut('off'), '')
+  assert.equal(cleanDeafenShortcut('F8'), 'F8')
+  assert.equal(cleanDeafenShortcut('Shift+D'), 'CommandOrControl+Alt+D')
+  const content = updateSettingsContent('', { deafenShortcut: 'Alt+Shift+M' })
+  assert.equal(parseSettings(content).deafenShortcut, 'Alt+Shift+M')
+  const off = updateSettingsContent('', { deafenShortcut: '' })
+  assert.equal(parseSettings(off).deafenShortcut, '')
 })

@@ -65,6 +65,12 @@ contextBridge.exposeInMainWorld('qwenAudioAgentDesktop', {
     ipcRenderer.on('qwen-audio-agent:push-to-talk', listener)
     return () => ipcRenderer.removeListener('qwen-audio-agent:push-to-talk', listener)
   },
+  onDeafenToggle: callback => {
+    if (typeof callback !== 'function') return () => {}
+    const listener = () => callback()
+    ipcRenderer.on('qwen-audio-agent:deafen-toggle', listener)
+    return () => ipcRenderer.removeListener('qwen-audio-agent:deafen-toggle', listener)
+  },
   onSettingsOverlay: callback => {
     if (typeof callback !== 'function') return () => {}
     const listener = (_event, payload) => callback(Boolean(payload?.open))
@@ -104,6 +110,12 @@ contextBridge.exposeInMainWorld('qwenAudioAgentDesktop', {
   ),
   lifecycleReady: () => ipcRenderer.send('qwen-audio-agent:lifecycle-ready'),
   loadLifecycle: () => ipcRenderer.invoke('qwen-audio-agent:lifecycle-load'),
+  pauseDeafenShortcut: () => ipcRenderer.invoke(
+    'qwen-audio-agent:deafen-shortcut-pause',
+  ),
+  resumeDeafenShortcut: () => ipcRenderer.invoke(
+    'qwen-audio-agent:deafen-shortcut-resume',
+  ),
   pauseWakeShortcut: () => ipcRenderer.invoke(
     'qwen-audio-agent:wake-shortcut-pause',
   ),

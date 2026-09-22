@@ -8,7 +8,7 @@ import {
 
 test('desktop client settings initialize from the desktop URL', () => {
   assert.deepEqual(initialDesktopClientSettings(
-    '?orbSkin=firefly&autoHideSeconds=300&wakeWordEnabled=true&micMode=push-to-talk&pushToTalkKey=F8&lang=en',
+    '?orbSkin=firefly&autoHideSeconds=300&wakeWordEnabled=true&micMode=push-to-talk&pushToTalkKey=F8&deafenShortcut=F7&lang=en',
   ), {
     orbSkinId: 'firefly',
     autoHideSeconds: 300,
@@ -16,6 +16,7 @@ test('desktop client settings initialize from the desktop URL', () => {
     micMode: 'push-to-talk',
     pushToTalkKey: 'F8',
     pushToTalkGlobal: false,
+    deafenShortcut: 'F7',
     language: 'en',
   })
 })
@@ -28,6 +29,7 @@ test('desktop client settings hot-apply without replacing unrelated state', () =
     micMode: 'always',
     pushToTalkKey: 'F9',
     pushToTalkGlobal: false,
+    deafenShortcut: 'CommandOrControl+Alt+D',
     language: 'zh-CN',
   }
 
@@ -42,6 +44,7 @@ test('desktop client settings hot-apply without replacing unrelated state', () =
     micMode: 'always',
     pushToTalkKey: 'F9',
     pushToTalkGlobal: false,
+    deafenShortcut: 'CommandOrControl+Alt+D',
     language: 'en',
   })
 })

@@ -2,6 +2,32 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-23 — a deafen key (Claude)
+- Ctrl+Alt+D, from any app, stops you hearing the assistant while its replies keep arriving as
+  text. Press again to hear it. Jake chose local mute over turning audio generation off: speech
+  is still synthesised, just not played, so it works instantly mid-sentence.
+- The trap it avoids: the hook already had an `outputMuted` input (never used, App passed
+  `false`) that called `stopPlayback()`, which sends `playback.cancelled`. The Gateway's
+  `cancelPlayback` marks the response suppressed and **drops its pending transcripts** - the
+  reply text is released at playback start - so deafening mid-reply would also have cut the
+  text off. Deafen now uses `planPlaybackDeafen` (`web/src/realtime/playback-lifecycle.js`):
+  stop the sources, acknowledge each in-flight response as started (releasing its text), then end
+  it now if its audio is complete or consume the rest silently until `audio.done`. A response
+  silenced this way stays silent even if you un-deafen before it finishes; the next is audible.
+- `stopPlayback` (barge-in, `playback.clear`) now also cancels responses being consumed
+  silently, so interrupting while deafened reads the same as interrupting aloud.
+- Key: `desktop/src/global-toggle-shortcut.mjs` (Electron `globalShortcut`, press only - no
+  uiohook needed, unlike hold-to-talk). Setting `deafenShortcut` /
+  `QWEN_AUDIO_DEAFEN_SHORTCUT`, default `CommandOrControl+Alt+D`, '' = off. Settings →
+  Application has a recorder that pauses the global key while recording (otherwise the key is
+  swallowed before the Settings window sees it); a key another app owns is refused on Apply
+  and shown red. Main sends `qwen-audio-agent:deafen-toggle`; the conversation window owns the
+  state, which is deliberately not persisted.
+- Button: speaker icon left of the mic in the header, amber while deafened; tooltip shows the key.
+  Checked in a browser at 1400px (web) and 420px (desktop panel, no header overflow).
+- Tests: 5 for the deafen plan, 6 for the toggle shortcut, 1 settings round trip, client settings
+  parsing. Desktop 309/309, web 196/196, root 192/193. Needs a rebuild; not yet tried live.
+
 ## 2026-09-23 — the speech service's diagnostics are kept (Claude)
 - The speech service ran with its output discarded (`stdio: 'ignore'` in the app, a hidden
   console from the launcher), so the adapters' "unavailable" diagnostic - the only sign a fix had

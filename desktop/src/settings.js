@@ -40,6 +40,10 @@ const pttKey = document.querySelector('#ptt-key')
 const recordPttKey = document.querySelector('#record-ptt-key')
 const clearPttKey = document.querySelector('#clear-ptt-key')
 let recordingPttKey = false
+const deafenKey = document.querySelector('#deafen-key')
+const recordDeafenKey = document.querySelector('#record-deafen-key')
+const clearDeafenKey = document.querySelector('#clear-deafen-key')
+let recordingDeafenKey = false
 const wakeWordEnabled = document.querySelector('#wake-word-enabled')
 const desktopLanguage = document.querySelector('#desktop-language')
 const backendList = document.querySelector('#backend-list')
@@ -250,6 +254,84 @@ window.addEventListener('keydown', event => {
   showMessage('')
   renderPttKey()
   updateApplyState()
+}, true)
+
+// The deafen key is registered system-wide, which would swallow it here, so it is paused
+// while recording and taken back afterwards (the saved key until Apply).
+function renderDeafenKey() {
+  recordDeafenKey.textContent = recordingDeafenKey
+    ? t('请按快捷键…')
+    : deafenKey.value ? wakeShortcutLabel(deafenKey.value) : t('关闭')
+  recordDeafenKey.classList.toggle('recording', recordingDeafenKey)
+  recordDeafenKey.classList.toggle('muted', !recordingDeafenKey && !deafenKey.value)
+  clearDeafenKey.hidden = !deafenKey.value
+}
+
+function renderDeafenKeyStatus(registered) {
+  recordDeafenKey.classList.toggle('invalid', registered === false)
+  recordDeafenKey.title = registered === false
+    ? t('这个静音助手键已被其他应用占用，点击重新设置')
+    : t('点击后按下新的快捷键')
+}
+
+async function finishRecordingDeafenKey() {
+  recordingDeafenKey = false
+  renderDeafenKey()
+  updateApplyState()
+  try {
+    renderDeafenKeyStatus(await window.qwenAudioAgentDesktop.resumeDeafenShortcut())
+  } catch {
+    renderDeafenKeyStatus(false)
+  }
+}
+
+recordDeafenKey.addEventListener('click', async () => {
+  if (recordingDeafenKey) {
+    await finishRecordingDeafenKey()
+    return
+  }
+  try {
+    await window.qwenAudioAgentDesktop.pauseDeafenShortcut()
+    recordingDeafenKey = true
+    recordDeafenKey.blur()
+    renderDeafenKey()
+    updateApplyState()
+  } catch (error) {
+    showMessage(friendlyError(error, t('无法开始录制静音助手键')), 'error')
+  }
+})
+
+clearDeafenKey.addEventListener('click', () => {
+  const wasRecording = recordingDeafenKey
+  deafenKey.value = ''
+  recordDeafenKey.classList.remove('invalid')
+  showMessage('')
+  if (wasRecording) {
+    void finishRecordingDeafenKey()
+    return
+  }
+  renderDeafenKey()
+  updateApplyState()
+})
+
+window.addEventListener('keydown', event => {
+  if (!recordingDeafenKey) return
+  event.preventDefault()
+  event.stopPropagation()
+  if (event.key === 'Escape') {
+    void finishRecordingDeafenKey()
+    return
+  }
+  if (['Meta', 'Control', 'Alt', 'Shift'].includes(event.key)) return
+  const shortcut = capturedWakeShortcut(event)
+  if (!shortcut) {
+    showMessage(t('请使用 Command/Ctrl 或 Alt 组合键，也可以直接使用 F1–F24。'), 'error')
+    return
+  }
+  deafenKey.value = shortcut
+  recordDeafenKey.classList.remove('invalid')
+  showMessage('')
+  void finishRecordingDeafenKey()
 }, true)
 
 function capturedWakeShortcut(event) {
@@ -816,6 +898,7 @@ function formSettings() {
     wakeShortcut: wakeShortcut.value,
     micMode: micMode.value,
     pushToTalkKey: pttKey.value,
+    deafenShortcut: deafenKey.value,
     wakeWordEnabled: wakeWordEnabled.checked,
     ...realtimeForm.values(),
     agentProtocol: selectedBackend(),
@@ -836,6 +919,7 @@ function fingerprint(value) {
     wakeShortcut: value.wakeShortcut,
     micMode: value.micMode ?? 'always',
     pushToTalkKey: value.pushToTalkKey ?? '',
+    deafenShortcut: value.deafenShortcut ?? '',
     wakeWordEnabled: value.wakeWordEnabled,
     ...realtimeSettingsValues(value),
     agentProtocol: value.agentProtocol,
@@ -868,6 +952,7 @@ function updateApplyState() {
   submit.disabled = (
     applying
     || recordingWakeShortcut
+    || recordingDeafenKey
     || (!remote && gatewayUrl.value === settings?.gatewayUrl && !backendAvailable)
     || fingerprint(formSettings()) === appliedFingerprint
   )
@@ -1092,6 +1177,9 @@ function render() {
   pttKey.value = settings.pushToTalkKey ?? ''
   recordingPttKey = false
   renderPttKey()
+  deafenKey.value = settings.deafenShortcut ?? ''
+  recordingDeafenKey = false
+  renderDeafenKey()
   wakeWordEnabled.checked = settings.wakeWordEnabled || false
   desktopLanguage.value = settings.language || 'auto'
   applyLanguage(desktopLanguage.value)
@@ -1228,6 +1316,7 @@ form.addEventListener('submit', async event => {
     settings = result.settings
     runtime = result.runtime
     renderWakeShortcutStatus(result.wakeShortcutRegistered)
+    renderDeafenKeyStatus(result.deafenShortcutRegistered)
     renderPttHint(result.pushToTalkGlobal)
     render()
     if (!runtime.gatewayConnected) {
@@ -1247,6 +1336,9 @@ form.addEventListener('submit', async event => {
     ) {
       renderWakeShortcutStatus(false)
     }
+    if (String(error?.message || '').includes('deafen key')) {
+      renderDeafenKeyStatus(false)
+    }
     showMessage(friendlyError(error, t('应用失败')), 'error')
   } finally {
     applying = false
@@ -1263,6 +1355,7 @@ window.qwenAudioAgentDesktop.loadSettings().then(value => {
   skins = value.skins || []
   runtime = value.runtime
   renderWakeShortcutStatus(value.wakeShortcutRegistered)
+  renderDeafenKeyStatus(value.deafenShortcutRegistered)
   renderPttHint(value.pushToTalkGlobal)
   render()
   void detectBackendOptions()
