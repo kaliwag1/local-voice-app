@@ -1,5 +1,5 @@
 import { spawn, execFile } from 'node:child_process'
-import { promises as fs } from 'node:fs'
+import { closeSync, openSync, promises as fs } from 'node:fs'
 import { homedir } from 'node:os'
 import path, { join, resolve } from 'node:path'
 import net from 'node:net'
@@ -137,12 +137,33 @@ function speechArguments(modelKey, voice) {
   ]
 }
 
+// The same file the launcher writes, so the latest run is always there - including
+// the speech adapters' "unavailable" diagnostics, the only sign one switched itself
+// off. Stderr only: stdout is where the speech package prints "USER: <what you said>"
+// and "ASSISTANT: <reply>", and reply and transcription text stay unlogged by default.
+// Each start overwrites the last. A log that cannot be opened must never stop speech
+// from starting, so it falls back to none.
+export function openSpeechLog(workdir, open = openSync) {
+  try {
+    return open(join(workdir, 'Last Speech Service.log'), 'w')
+  } catch {
+    return null
+  }
+}
+
 function launchSpeech(file, modelKey, workdir, voice) {
-  const child = spawn(file, speechArguments(modelKey, voice), {
-    cwd: workdir, detached: true, stdio: 'ignore', windowsHide: true,
-    env: speechEnvironment(workdir),
-  })
-  child.unref()
+  const log = openSpeechLog(workdir)
+  try {
+    const child = spawn(file, speechArguments(modelKey, voice), {
+      cwd: workdir, detached: true, windowsHide: true,
+      stdio: ['ignore', 'ignore', log ?? 'ignore'],
+      env: speechEnvironment(workdir),
+    })
+    child.unref()
+  } finally {
+    // The child holds its own handle; ours is only needed for the spawn.
+    if (log !== null) closeSync(log)
+  }
 }
 
 export function speechEnvironment(workdir, env = process.env) {

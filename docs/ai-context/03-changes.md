@@ -2,6 +2,25 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-23 — the speech service's diagnostics are kept (Claude)
+- The speech service ran with its output discarded (`stdio: 'ignore'` in the app, a hidden
+  console from the launcher), so the adapters' "unavailable" diagnostic - the only sign a fix had
+  switched itself off - was never seen, and whether the fixes were live could only be checked by
+  reproducing the startup path by hand.
+- Both start paths now write the service's **stderr** to `realtime-voice-chat\Last Speech
+  Service.log`, overwritten on each start. Stdout stays discarded on purpose: the speech package
+  prints `USER: <transcribed speech>`, `ASSISTANT: <reply>` and live partial transcripts there,
+  and `docs/reference/memory.md` states that transcription and reply text are not logged by
+  default. Upstream's Python logging on stderr already redacts transcripts to lengths
+  (`transcript_for_log`). An earlier draft of this change also captured stdout; it was caught
+  before commit.
+- A log that cannot be opened falls back to none rather than stopping speech from starting.
+- The Bonsai startup log was appended forever (llama-server writes timing lines through every
+  reply). It still appends across starts, but starts afresh once it passes 2 MB.
+- Verified live through the launcher: the log captured the service's startup, carried no
+  `unavailable` line - the first confirmation that the reasoning, formatting and seamless-audio
+  fixes are installed in the running service - and no conversation text. Desktop suite 302/302.
+
 ## 2026-09-23 — no more grit riding on the voice (Claude)
 - The static Jake heard during speech (silent in the gaps) was two resampling stages, each
   converting every 32 ms block on its own. Pocket TTS generates at 24 kHz; the handler resampled

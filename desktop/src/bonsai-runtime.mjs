@@ -23,6 +23,13 @@ export function serverArguments(model, context) {
   if (![16384, 32768, 65536, 131072].includes(Number(context))) throw new Error('Unsupported Bonsai context size.')
   return ['-m', model, '-ngl', '99', '-fa', 'on', '-c', String(context), '--parallel', '1', '--jinja', '--alias', 'bonsai', '--host', '127.0.0.1', '--port', '8080']
 }
+// The startup log is appended across starts because that history helps with
+// diagnosis, but llama-server writes timing lines all through every reply, so it
+// only ever grew. Start it afresh once it passes this size.
+export const MAX_LOG_BYTES = 2 * 1024 * 1024
+export function logOpenMode(currentSize) {
+  return Number(currentSize) > MAX_LOG_BYTES ? 'w' : 'a'
+}
 export function ownsBonsai(info, record, paths) {
   return Boolean(info && record && Number.isSafeInteger(record.pid) && info.pid === record.pid
     && isBonsai(record.key) && normalize(info.executablePath) === normalize(paths.exe)
@@ -75,7 +82,9 @@ export function createBonsaiRuntime({ paths = bonsaiPaths(), inspect = listener,
       if (response.ok) return
     }
     if (current) await stop()
-    const log = await fs.open(`${paths.state}.log`, 'a')
+    const logPath = `${paths.state}.log`
+    const logSize = await fs.stat(logPath).then(stats => stats.size, () => 0)
+    const log = await fs.open(logPath, logOpenMode(logSize))
     const child = spawn(paths.exe, args, { cwd: dirname(paths.exe), detached: true, windowsHide: true, stdio: ['ignore', log.fd, log.fd] })
     let failure
     child.on('error', error => { failure = error })

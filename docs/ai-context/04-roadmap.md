@@ -26,7 +26,7 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 streaming through upstream's own `_StreamingFIRResampler`. Full account in 03-changes.
 If it regresses after a package update, `seamless_audio` disables itself on a hash mismatch and
 speech falls back to upstream's behaviour - check by running the adapter's startup path by hand
-(the speech process's stderr is not logged).
+(look for `unavailable` in `Last Speech Service.log`).
 
 ## Agreed features, not started (2026-09-19)
 

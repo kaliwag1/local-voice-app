@@ -47,6 +47,11 @@ explicitly unavailable. Activity survives chat switching and restarts.
 3. Task error text is in `state\desktop\tasks.json` (`error` field).
 4. OpenCode's reasons (model not found, context size) are in `opencode.log`.
 5. `Get-NetTCPConnection -LocalPort 3101,4096,8765,1234 -State Listen` to see what is up.
+6. `realtime-voice-chat\Last Speech Service.log` — the speech service's stderr for its latest run
+   (both the launcher and in-app restarts write it; each start overwrites). A line reading
+   `ZD Voice ... unavailable` means one of the speech-adapter fixes switched itself off after an
+   upstream change. Stdout is deliberately not kept: it is where the service prints
+   `USER: <what you said>` and `ASSISTANT: <reply>`, and conversation text stays unlogged.
 
 ## Model switching
 

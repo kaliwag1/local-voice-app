@@ -3,7 +3,14 @@ import { test } from 'node:test'
 import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { bonsaiPaths, createBonsaiRuntime, ownsBonsai, serverArguments, withBonsai } from '../src/bonsai-runtime.mjs'
+import { bonsaiPaths, createBonsaiRuntime, logOpenMode, MAX_LOG_BYTES, ownsBonsai, serverArguments, withBonsai } from '../src/bonsai-runtime.mjs'
+
+test('keeps appending the startup log until it passes the cap, then starts afresh', () => {
+  assert.equal(logOpenMode(0), 'a')
+  assert.equal(logOpenMode(MAX_LOG_BYTES), 'a')
+  assert.equal(logOpenMode(MAX_LOG_BYTES + 1), 'w')
+  assert.equal(logOpenMode(undefined), 'a')
+})
 
 test('Bonsai ownership requires recorded PID, exact runtime and selected model', () => {
   const paths = bonsaiPaths('C:\\Jake', 'C:\\voice')
