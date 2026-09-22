@@ -894,7 +894,7 @@ test('builds cache-friendly policy, identity, memory and reconnect context', () 
     }],
   })
 
-  assert.match(prompt, /千问Audio/)
+  assert.match(prompt, /<assistant_profile[^>]*>[^]*## Identity/)
   assert.match(prompt, /与用户进行全双工语音交互的统一助手/)
   assert.match(prompt, /不要把自己描述成前台模型、后台模型/)
   assert.match(prompt, /Asia\/Shanghai/)

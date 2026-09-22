@@ -2402,6 +2402,8 @@ test('reports recent project Session updates with Gateway delegation status', as
       status: 'completed',
       category: 'read',
       detail: '/project/package.json',
+      paths: ['/project/package.json'],
+      writes: false,
     },
     {
       kind: 'plan',

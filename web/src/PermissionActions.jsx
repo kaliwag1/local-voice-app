@@ -8,6 +8,22 @@ const decisions = [
   { value: 'reject', label: '拒绝', title: '拒绝当前操作' },
 ]
 
+// The three decisions, kept free of state so each button's wiring can be
+// checked without a DOM - the rule editor below is what needs hooks.
+export function PermissionDecisions({ submitting = false, onRespond }) {
+  return <>
+    {decisions.map(({ value, label, title }) => <button
+      key={value}
+      type="button"
+      className={`permission-${value}`}
+      title={t(title)}
+      aria-label={`${t(label)}：${t(title)}`}
+      disabled={submitting}
+      onClick={() => onRespond(value)}
+    >{t(label)}</button>)}
+  </>
+}
+
 // `onRemember(rule)` saves a persistent rule (and allows the task); when the
 // operation cannot be turned into a rule (destructive command, delete), the
 // "Remember" button is not offered at all.
@@ -29,15 +45,7 @@ export default function PermissionActions({ authorization, onRespond, onRemember
   }
   return <div className="permission-controls" aria-busy={Boolean(authorization.submitting)}>
     <div className={`permission-actions${suggestion ? ' with-remember' : ''}`} role="group" aria-label={t('权限决定')}>
-      {decisions.map(({ value, label, title }) => <button
-        key={value}
-        type="button"
-        className={`permission-${value}`}
-        title={t(title)}
-        aria-label={`${t(label)}：${t(title)}`}
-        disabled={authorization.submitting}
-        onClick={() => onRespond(value)}
-      >{t(label)}</button>)}
+      <PermissionDecisions submitting={authorization.submitting} onRespond={onRespond} />
       {suggestion && <button
         type="button"
         className="permission-remember"

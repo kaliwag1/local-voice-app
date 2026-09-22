@@ -47,6 +47,7 @@ test('keeps unsupported or inconclusive authentication probes unknown', async ()
 test('detects explicit unauthenticated results without treating failures as proof', async () => {
   assert.equal((await inspectBackendAuthentication('opencode', {
     command: 'opencode',
+    env: {},
     run: result('0 credentials'),
   })).status, 'unauthenticated')
   assert.equal((await inspectBackendAuthentication('codex', {

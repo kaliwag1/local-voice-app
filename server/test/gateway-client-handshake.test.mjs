@@ -22,6 +22,7 @@ import {
   GatewayEventRouter,
 } from '../src/client/client-event-router.mjs'
 import { attachRealtimeGateway } from '../src/voice/realtime-gateway.mjs'
+import { DEFAULT_REALTIME_PROVIDER } from '../../shared/realtime-provider-definitions.mjs'
 import { IdentityManager } from '../src/core/identity.mjs'
 
 const ACCESS_SECRET = 'gateway-client-access-test-secret-over-thirty-two-characters'
@@ -30,6 +31,9 @@ const REMOTE_ACCESS_TOKEN = 'gateway-client-remote-token-over-twenty-four-chars'
 function gatewayHarness(overrides = {}) {
   const server = createServer()
   const gateway = attachRealtimeGateway(server, {
+    // Pin the shipped default. Left unset, the gateway takes this machine's
+    // config.env, and a Speech-to-Speech setup refuses mid-session voice changes.
+    defaultRealtimeProvider: DEFAULT_REALTIME_PROVIDER,
     identityManager: {
       resolveUpgrade: () => ({ ownerId: 'owner-protocol-test' }),
     },

@@ -110,7 +110,10 @@ test('timeout preserves the original error and terminates an unresponsive Serve 
   })
   const rejected = assert.rejects(publisher.start('http://127.0.0.1:3101'), { code: 'tailscale_serve_timeout' })
   child.stdout.write('https://voice.example.ts.net\n')
-  await Promise.all([rejected, delay(40)])
+  await rejected
+  for (const deadline = Date.now() + 2000; !signals.includes('SIGKILL') && Date.now() < deadline;) {
+    await delay(5)
+  }
   assert.deepEqual(signals, ['SIGTERM', 'SIGKILL'])
   assert.equal(publisher.status().error.code, 'tailscale_serve_timeout')
   await publisher.close()

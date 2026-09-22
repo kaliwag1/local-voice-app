@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
 import {
   buildFrontendContext,
   buildRecentConversationContext,
@@ -116,7 +117,10 @@ test('loads one canonical frontend policy separately from runtime context', () =
   assert.match(prompt, /工具尚未返回时取消仍在进行中/)
   assert.ok(prompt.length < 5000)
   assert.match(assistant, /## Identity/)
-  assert.match(assistant, /千问Audio/)
+  // The loaded profile is the user's own config, seeded once from the shipped default and
+  // theirs to edit - assert the default where it ships, not a name in someone's file.
+  const shipped = readFileSync(new URL('../../config/frontend-agent/ASSISTANT.md', import.meta.url), 'utf8')
+  assert.match(shipped, /千问Audio/)
   assert.doesNotMatch(context, /# Instruction hierarchy/)
   assert.match(context, /<runtime_context>/)
 })

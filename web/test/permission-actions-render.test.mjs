@@ -7,6 +7,7 @@ import { createServer } from 'vite'
 
 let server
 let PermissionActions
+let PermissionDecisions
 let setRuntimeLanguage
 
 before(async () => {
@@ -17,7 +18,9 @@ before(async () => {
     optimizeDeps: { noDiscovery: true, include: [] },
     server: { middlewareMode: true, watch: null, hmr: false },
   })
-  PermissionActions = (await server.ssrLoadModule('/src/PermissionActions.jsx')).default
+  const permissionModule = await server.ssrLoadModule('/src/PermissionActions.jsx')
+  PermissionActions = permissionModule.default
+  PermissionDecisions = permissionModule.PermissionDecisions
   ;({ setRuntimeLanguage } = await server.ssrLoadModule('/src/i18n.js'))
 })
 
@@ -52,9 +55,8 @@ test('permission buttons are short in both languages and retain session scope in
 test('each button sends its own decision and pending submission keeps all labels stable', () => {
   setRuntimeLanguage('en')
   const calls = []
-  const element = PermissionActions({ authorization: {}, onRespond: decision => calls.push(decision) })
-  const group = Children.toArray(element.props.children)[0]
-  for (const button of Children.toArray(group.props.children)) button.props.onClick()
+  const element = PermissionDecisions({ onRespond: decision => calls.push(decision) })
+  for (const button of Children.toArray(element.props.children)) button.props.onClick()
   assert.deepEqual(calls, ['task', 'always', 'reject'])
   const html = markup({ submitting: true, error: 'Could not send; try again.' })
   assert.equal([...html.matchAll(/disabled=""/g)].length, 3)
