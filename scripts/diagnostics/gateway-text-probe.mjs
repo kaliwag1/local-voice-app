@@ -47,7 +47,7 @@ const client = new GatewayClient({
   onStatus: status => { seen[`status:${status.state}`] = (seen[`status:${status.state}`] || 0) + 1 },
 })
 
-const timer = setTimeout(() => finish('timeout'), 45_000)
+const timer = setTimeout(() => finish("timeout"), Number(process.env.PROBE_TIMEOUT_MS || 45_000))
 function finish(reason, finalText) {
   clearTimeout(timer)
   console.log(JSON.stringify({ reason, sent, finalText, streamed: transcript, events: seen }, null, 2))

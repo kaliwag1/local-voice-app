@@ -57,6 +57,23 @@ export function shouldClaimReleasedVoice(event, waitingForVoice) {
   )
 }
 
+// The launcher opens the app while speech is still loading (up to about a minute),
+// and the Gateway keeps retrying the speech link until it answers. Until that link
+// has come up once, "unavailable" means "not ready yet" and is shown as connecting -
+// for a while only, so a speech service that never starts is still reported.
+export const SPEECH_STARTUP_GRACE_MS = 120_000
+
+export function startupVoiceConnectionEvent(event, { linkSeen, startedAt, now = Date.now() }) {
+  if (
+    event?.type !== GatewayServerEvent.VOICE_CONNECTION
+    || event.state !== 'unavailable'
+    || linkSeen
+    || now - startedAt > SPEECH_STARTUP_GRACE_MS
+  ) return event
+  const { message: _message, ...rest } = event
+  return { ...rest, state: 'connecting' }
+}
+
 export function shouldAdvertiseVoice(enabled, inputReady) {
   return enabled === true && inputReady === true
 }
@@ -235,6 +252,8 @@ export default function useRealtimeVoice({
   const socketRef = useRef(null)
   const takeoverRef = useRef(false)
   const hasConnectedRef = useRef(false)
+  const voiceLinkSeenRef = useRef(false)
+  const startedAtRef = useRef(Date.now())
   const pendingManualInputsRef = useRef([])
   const audioRef = useRef(null)
   const currentTurnId = useRef('')
@@ -641,7 +660,15 @@ export default function useRealtimeVoice({
 
   useEffect(() => {
     const mutedResponses = mutedPlaybackResponses.current
-    const handleEvent = event => {
+    const handleEvent = received => {
+      const event = startupVoiceConnectionEvent(received, {
+        linkSeen: voiceLinkSeenRef.current,
+        startedAt: startedAtRef.current,
+      })
+      if (
+        event.type === GatewayServerEvent.VOICE_READY
+        || (event.type === GatewayServerEvent.VOICE_CONNECTION && event.state === 'connected')
+      ) voiceLinkSeenRef.current = true
       dispatchClientState(event)
       if (event.type === GatewayServerEvent.VOICE_READY && event.inputSampleRate) {
         inputSampleRate.current = event.inputSampleRate

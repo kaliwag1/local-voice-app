@@ -2,6 +2,29 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-23 — the app opens without waiting for speech (Claude)
+- Jake: 55 s from the shortcut to the app. Timed from the logs (02:56-02:57 start): the steps
+  before speech take under a second each (`lms server start`/`ps` ~0.6 s); the speech service
+  took ~48 s - 30 s of Python imports before its first log line (cold; 14 s warm), Parakeet 9 s,
+  a warm-up call to the chat model 4.4 s, Pocket TTS 3 s - and only then did the launcher start
+  the app, which needed ~5 s more.
+- The app needs none of speech to open, and the Gateway retries the speech link with back-off
+  (0.5 s doubling to ~10 s). Checked before relying on it: an isolated Gateway started with speech
+  down kept retrying, and when speech came up ~20 s later a typed message went through with no
+  client reconnect.
+- `Start My Voice App.ps1` now starts speech, opens the app straight away, then waits up to
+  120 s for speech (status "Speech ready.", or a failure naming `Last Speech Service.log`). The
+  startup window closes as soon as the app window exists rather than when the script ends.
+  Expected: the window in ~5-10 s; voice about 40 s later.
+- Chat window: until the speech link has connected once, and for at most 2 minutes, "unavailable"
+  shows as "Connecting voice frontend" instead of a red "connection error, retrying"
+  (`startupVoiceConnectionEvent` in `useRealtimeVoice.js`). After that, or once it has connected,
+  errors show as before.
+- Found on the way, not changed: upstream checks for `tokenizers/averaged_perceptron_tagger_eng`,
+  but NLTK keeps it under `taggers/`, so every start calls `nltk.download` (a network index
+  check; 0.1 s here, longer or a stall when offline).
+- Tests: 2 new (web 200). Chat-window part needs a rebuild; launcher script and exe are live.
+
 ## 2026-09-23 — OpenCode no longer fails to connect with "database is locked" (Claude)
 - Settings → Runtime status showed "OpenCode disconnected: OpenCode ACP 初始化失败 … database is
   locked" after both starts on 2026-09-23. The Gateway starts `opencode serve` and `opencode acp`

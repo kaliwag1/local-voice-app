@@ -9,7 +9,9 @@ Only `resources\runtime\scripts\runtime\*.mjs` can be patched without a rebuild.
 ## Run
 Desktop shortcut **My Local Voice App** (or `Start My Voice App.ps1`). The script starts LM Studio's
 server, loads the selected model with `--context-length 32768` (variable `$modelContextLength`),
-starts the speech service on 8765, frees port 3101, sets `OPENCODE_RUNTIME/OPENCODE_BIN`, launches the app.
+starts the speech service on 8765, frees port 3101, sets `OPENCODE_RUNTIME/OPENCODE_BIN`, launches the app
+**without waiting for speech** (it loads for 25-50 s; the Gateway retries until it answers), then waits
+for speech and records "Speech ready." or a failure in `Last Voice App Start.txt`.
 
 ## Permission rules
 Settings → Permissions, or **Remember…** on a permission card. File: `state\desktop\permission-rules.json`

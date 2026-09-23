@@ -8,6 +8,8 @@ import {
   realtimeClientMode,
   shouldAdvertiseVoice,
   shouldClaimReleasedVoice,
+  SPEECH_STARTUP_GRACE_MS,
+  startupVoiceConnectionEvent,
   visualVoiceState,
 } from '../src/realtime/useRealtimeVoice.js'
 
@@ -144,4 +146,18 @@ test('keeps visual state semantic instead of inferring it from local volume', ()
   assert.equal(visualVoiceState('listening'), 'listening')
   assert.equal(visualVoiceState('processing'), 'processing')
   assert.equal(visualVoiceState('speaking'), 'speaking')
+})
+
+test('speech that is still loading reads as connecting, not as an error', () => {
+  const unavailable = { type: 'voice.connection', state: 'unavailable', message: 'connect ECONNREFUSED' }
+  const early = startupVoiceConnectionEvent(unavailable, { linkSeen: false, startedAt: 0, now: 30_000 })
+  assert.deepEqual(early, { type: 'voice.connection', state: 'connecting' })
+})
+
+test('once speech has connected, or after the grace period, unavailable is reported as it is', () => {
+  const unavailable = { type: 'voice.connection', state: 'unavailable', message: 'lost' }
+  assert.equal(startupVoiceConnectionEvent(unavailable, { linkSeen: true, startedAt: 0, now: 1000 }), unavailable)
+  assert.equal(startupVoiceConnectionEvent(unavailable, { linkSeen: false, startedAt: 0, now: SPEECH_STARTUP_GRACE_MS + 1 }), unavailable)
+  const other = { type: 'voice.connection', state: 'connected' }
+  assert.equal(startupVoiceConnectionEvent(other, { linkSeen: false, startedAt: 0, now: 0 }), other)
 })
