@@ -26,3 +26,11 @@ if os.environ.get("ZD_VOICE_REASONING_ADAPTER") == "1":
         install_seamless_audio()
     except Exception as error:
         print(f"ZD Voice seamless audio unavailable: {type(error).__name__}: {error}", file=sys.stderr)
+
+    # Upstream checks for NLTK's tagger in the wrong folder and so downloads on every
+    # start; skip that when the app's own nltk_data already has it.
+    try:
+        from nltk_offline import install as install_nltk_offline
+        install_nltk_offline()
+    except Exception as error:
+        print(f"ZD Voice NLTK offline check unavailable: {type(error).__name__}: {error}", file=sys.stderr)

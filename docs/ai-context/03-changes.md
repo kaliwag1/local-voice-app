@@ -2,6 +2,20 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-23 — speech start-up no longer goes online; the launcher notices a crashed start (Claude)
+- Upstream's `s2s_pipeline` checks for NLTK's POS tagger under `tokenizers/`, but NLTK keeps it
+  under `taggers/`, so every start ran `nltk.download`, fetching NLTK's package index from GitHub
+  (0.1 s here; an error or a wait when offline). The data was already in the app's `nltk_data`.
+  `speech-adapter/nltk_offline.py` (installed from `sitecustomize.py`) skips a download of a
+  package that is already installed under any category; anything missing still downloads.
+  Checked with the network blocked: without it, "Error loading averaged_perceptron_tagger_eng";
+  with it, no request.
+- Launcher (parent repo): now that the app opens before speech is ready, the script used to wait
+  the full 120 s even if speech had already crashed. It now keeps the speech process and stops
+  waiting as soon as it exits, recording the exit code. `$speechProcess.Handle` is read right
+  after start: without it PowerShell reports no exit code for a `Start-Process -PassThru` process.
+- Tests: 3 new (`test_nltk_offline.py`). Takes effect on the next speech start; no rebuild needed.
+
 ## 2026-09-23 — the app opens without waiting for speech (Claude)
 - Jake: 55 s from the shortcut to the app. Timed from the logs (02:56-02:57 start): the steps
   before speech take under a second each (`lms server start`/`ps` ~0.6 s); the speech service

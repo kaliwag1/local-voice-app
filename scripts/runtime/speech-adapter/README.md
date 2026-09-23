@@ -83,12 +83,22 @@ Upstream treats a `response.create` with no `output_modalities` as audio, whatev
 the session says, so the Gateway's speech provider fills in text on every response
 in text mode (`SPEECH_TO_SPEECH_OUTPUT=text`).
 
+## NLTK offline check (`nltk_offline.py`)
+
+Upstream checks for the POS tagger under `tokenizers/`, but NLTK keeps it under
+`taggers/`, so the check always fails and `nltk.download` runs on every start,
+fetching NLTK's package index from GitHub. The launcher points `NLTK_DATA` at the
+app's `nltk_data` folder, which already holds both packages. The wrapper skips a
+download of a package already installed under any category; missing ones still
+download.
+
 From the app repository on Windows:
 
 ```
 ../.voice-env/Scripts/python.exe scripts/runtime/speech-adapter/test_reasoning_adapter.py
 ../.voice-env/Scripts/python.exe scripts/runtime/speech-adapter/test_seamless_audio.py
 ../.voice-env/Scripts/python.exe scripts/runtime/speech-adapter/test_text_only.py
+../.voice-env/Scripts/python.exe scripts/runtime/speech-adapter/test_nltk_offline.py
 ```
 
 The adapter covers streamed Chat Completions, shared by both Bonsai variants and
