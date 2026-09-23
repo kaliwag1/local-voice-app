@@ -2,6 +2,18 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-23 — OpenCode no longer fails to connect with "database is locked" (Claude)
+- Settings → Runtime status showed "OpenCode disconnected: OpenCode ACP 初始化失败 … database is
+  locked" after both starts on 2026-09-23. The Gateway starts `opencode serve` and `opencode acp`
+  within ~0.3 s; both open OpenCode's SQLite database while starting. In every earlier run the
+  ACP bridge happened to finish just after serve (acp.initialized 0.1-0.4 s after "listening");
+  on 09-23 it lost the race, exited, and nothing tried again, so the backend stayed down.
+- `AcpProcessClient.start()` now retries a start that failed with "database is locked" /
+  `SQLITE_BUSY` after 1, 2 and 4 s (`acp.start_retry` in gateway.log). Any other start failure
+  still fails at once. Kept backend-neutral: the dependency-boundary test forbids naming a backend
+  in the generic ACP client.
+- Tests: 3 new. Server 1319 + 1 Windows skip. Needs a rebuild (the Gateway is inside app.asar).
+
 ## 2026-09-23 — no more Windows-drawn menus; new startup box (Claude)
 - Jake: the startup loading box needed an overhaul, and several menus looked like default
   Windows ones. Those were every `<select>` (Windows draws the open list itself - white, square -

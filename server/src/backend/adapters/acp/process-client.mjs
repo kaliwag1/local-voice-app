@@ -18,6 +18,17 @@ const MAX_STDERR_CHARS = 12_000
 // Gateway has a 2s hard shutdown deadline. Leave enough time for adapter and
 // logger cleanup after escalating an unresponsive process tree.
 const PROCESS_TREE_GRACE_MS = 750
+// A backend may keep its state in one SQLite database that a companion server
+// process, started alongside this ACP bridge, is still initialising. The bridge
+// then fails with "database is locked" and exits. The lock clears within a
+// second or two, so such a start is tried again after a pause.
+const LOCKED_DATABASE_RETRY_DELAYS_MS = [1_000, 2_000, 4_000]
+
+export function isLockedDatabaseFailure(error) {
+  return /database is locked|SQLITE_BUSY/i.test(
+    [error?.message, error?.detail, error?.cause?.message].filter(Boolean).join(' '),
+  )
+}
 const PROCESS_TREE_POLL_MS = 25
 
 function clean(value) {
@@ -110,6 +121,7 @@ export class AcpProcessClient {
     onUpdate,
     sanitizeProcessOutput,
     formatRequestError,
+    lockedDatabaseRetryDelaysMs = LOCKED_DATABASE_RETRY_DELAYS_MS,
   }) {
     this.label = label
     this.command = command
@@ -127,6 +139,7 @@ export class AcpProcessClient {
     this.onUpdate = onUpdate
     this.sanitizeProcessOutput = sanitizeProcessOutput
     this.formatRequestError = formatRequestError
+    this.lockedDatabaseRetryDelaysMs = lockedDatabaseRetryDelaysMs
     this.child = null
     this.connection = null
     this.context = null
@@ -171,11 +184,25 @@ export class AcpProcessClient {
     ) {
       return this.initializeResult
     }
-    this.startPromise = this.startProcess()
+    this.startPromise = this.startRetryingLockedDatabase()
       .finally(() => {
         this.startPromise = null
       })
     return this.startPromise
+  }
+
+  async startRetryingLockedDatabase() {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await this.startProcess()
+      } catch (error) {
+        const delayMs = this.lockedDatabaseRetryDelaysMs[attempt]
+        if (delayMs === undefined || !isLockedDatabaseFailure(error)) throw error
+        logger.child({ subsystem: 'acp', backend: this.label })
+          .warn('acp.start_retry', { reason: 'database_locked', attempt: attempt + 1, delayMs })
+        await new Promise(resolve => setTimeout(resolve, delayMs))
+      }
+    }
   }
 
   async startProcess() {

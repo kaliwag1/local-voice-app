@@ -81,3 +81,7 @@
     `response.create` with none is spoken even when the session asked for text, and typed
     input sends none. The symptom in text mode is a reply flattened onto one line (the audio
     transcript joins parts with spaces, lesson 21). Every response has to state its modality.
+28. **Two OpenCode processes share one SQLite database.** `opencode serve` and `opencode acp`
+    start together; the loser of the start-up race exits with "database is locked". The ACP
+    client now retries that case. If it comes back, look for a third OpenCode process (an
+    orphan from a force-kill, or a manual `opencode` in a terminal) holding the database.

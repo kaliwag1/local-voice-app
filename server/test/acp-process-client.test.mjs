@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
 import test from 'node:test'
-import { AcpProcessClient } from '../src/backend/adapters/acp/process-client.mjs'
+import { AcpProcessClient, isLockedDatabaseFailure } from '../src/backend/adapters/acp/process-client.mjs'
 import { openClawBackendDriver } from '../src/backend/adapters/acp/drivers/openclaw.mjs'
 
 test('keeps session object identity stable across re-registration', () => {
@@ -85,6 +85,44 @@ test('shares an in-flight ACP initialization across concurrent callers', async (
 
   assert.equal(await first, initialized)
   assert.equal(await second, initialized)
+})
+
+test('retries a start that found the backend database locked, then succeeds', async () => {
+  const client = new AcpProcessClient({ label: 'OpenCode', command: 'unused', lockedDatabaseRetryDelaysMs: [1, 1, 1] })
+  const initialized = { protocolVersion: 1 }
+  let attempts = 0
+  client.startProcess = async () => {
+    attempts += 1
+    if (attempts < 3) throw new Error('OpenCode ACP 初始化失败：Error: Unexpected error\r\ndatabase is locked')
+    client.context = {}
+    client.child = { exitCode: null }
+    client.initializeResult = initialized
+    return initialized
+  }
+  assert.equal(await client.start(), initialized)
+  assert.equal(attempts, 3)
+})
+
+test('gives up after the last retry, and never retries other start failures', async () => {
+  const locked = new AcpProcessClient({ label: 'OpenCode', command: 'unused', lockedDatabaseRetryDelaysMs: [1, 1] })
+  let lockedAttempts = 0
+  locked.startProcess = async () => { lockedAttempts += 1; throw new Error('database is locked') }
+  await assert.rejects(locked.start(), /database is locked/)
+  assert.equal(lockedAttempts, 3)
+
+  const other = new AcpProcessClient({ label: 'OpenCode', command: 'unused', lockedDatabaseRetryDelaysMs: [1, 1] })
+  let otherAttempts = 0
+  other.startProcess = async () => { otherAttempts += 1; throw new Error('协议版本不兼容') }
+  await assert.rejects(other.start(), /协议版本不兼容/)
+  assert.equal(otherAttempts, 1)
+})
+
+test('recognises a locked database wherever the backend reported it', () => {
+  assert.equal(isLockedDatabaseFailure(new Error('Unexpected errordatabase is locked')), true)
+  assert.equal(isLockedDatabaseFailure({ message: '初始化失败', detail: 'SQLITE_BUSY: database is locked' }), true)
+  assert.equal(isLockedDatabaseFailure({ message: 'x', cause: new Error('SQLITE_BUSY') }), true)
+  assert.equal(isLockedDatabaseFailure(new Error('进程意外退出（1）')), false)
+  assert.equal(isLockedDatabaseFailure(undefined), false)
 })
 
 test('preserves ENOENT when a local ACP executable cannot be spawned', {
