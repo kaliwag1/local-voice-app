@@ -19,6 +19,7 @@ import { installHealthPanel } from './health-panel.js'
 import { installPermissionsPanel } from './permissions-panel.js'
 import { installLocalVoicePanel } from './local-voice-panel.js'
 import { installLocalModePanel } from './local-mode-panel.js'
+import { enhanceSelects } from './styled-select.js'
 import {
   desktopTranslator,
   effectiveDesktopLanguage,
@@ -86,6 +87,8 @@ function installOptionalPanel(install) {
     return async () => {}
   }
 }
+// Before the panels fill their selects, so every later value change is drawn.
+installOptionalPanel(() => enhanceSelects(document))
 const refreshHealth = installOptionalPanel(installHealthPanel)
 const refreshPermissions = installOptionalPanel(installPermissionsPanel)
 const refreshLocalVoice = installOptionalPanel(installLocalVoicePanel)

@@ -53,6 +53,18 @@ explicitly unavailable. Activity survives chat switching and restarts.
    upstream change. Stdout is deliberately not kept: it is where the service prints
    `USER: <what you said>` and `ASSISTANT: <reply>`, and conversation text stays unlogged.
 
+## Startup window (the desktop shortcut's launcher)
+`realtime-voice-chat\My Local Voice App Launcher.cs` → `.exe`, rebuilt with the compiler that ships
+with Windows (C# 5 only - no `$""`, `?.` or `=>` members); the command is at the top of the file.
+`--preview 1` shows a step without starting anything; add `--fail`, `--text` or
+`--snapshot out.png`. Its steps come from the status lines `Start My Voice App.ps1` writes to
+`Last Voice App Start.txt` (`StepFor` in the .cs) - keep the wording in step when editing either.
+
+## Menus and dropdowns
+Don't use a bare `<select>` or a native Electron `Menu` for anything the user opens on Windows:
+the open list/menu is drawn by the system and ignores the theme. Settings selects are enhanced
+automatically (`styled-select.js`); in the chat use `SelectMenu.jsx`; the tray uses `tray-menu.mjs`.
+
 ## Conversation mode (voice / text only)
 
 Settings → Application → **Conversation**. Writes `realtime-voice-chat\.selected-app-mode`

@@ -2,6 +2,37 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-23 — no more Windows-drawn menus; new startup box (Claude)
+- Jake: the startup loading box needed an overhaul, and several menus looked like default
+  Windows ones. Those were every `<select>` (Windows draws the open list itself - white, square -
+  and no CSS reaches it) and the tray icon's right-click menu (always the system's).
+- **Settings dropdowns** - `desktop/src/styled-select.js` puts a themed button and list in front
+  of each of the nine selects. The native select stays as the source of truth: existing code that
+  reads or sets `.value`, listens for `change`, disables it or rewrites option text (translation)
+  keeps working, because the instance forwards `value`/`selectedIndex` and a MutationObserver
+  redraws. Arrow keys, Home/End, Enter/Space, Escape, type-ahead; opens upwards when there is no
+  room below. `.settings-card` clips to its rounded corners, so it shows overflow only while one
+  of its lists is open.
+- **Chat dropdowns** - `web/src/SelectMenu.jsx`, same look and keys, for the screen-app picker and
+  the permission rule's access choice. Its selectors are doubled up so card-level `button` rules
+  cannot restyle it; the screen picker's own button rule was narrowed to its action buttons.
+- **Tray menu** - on Windows, right-click now opens `desktop/src/tray-menu.html` in a small
+  frameless window (`tray-menu.mjs`, own minimal preload): header, icons, danger-styled Quit,
+  keyboard navigation, closes on blur/Escape, placed at the pointer and kept on screen. The items
+  live in `createTray()` once; other platforms still get the native menu from the same list.
+- **Startup box** (launcher repo, `My Local Voice App Launcher.cs`) - hand-painted dark window
+  with rounded corners and shadow: brand mark, four steps (check setup, load the model, start
+  speech - or "chat (text only)" - open the app) with tick/spinner/cross states, per-step timer,
+  a progress bar that eases through each step and moves on with the script's status lines, and a
+  proper failure state with the reason, "Open startup log" and "Close". Draggable. The exe now
+  carries the app icon (`launcher.ico`). `--preview <step> [--fail] [--text] [--snapshot x.png]`
+  renders it without starting anything; snapshots of each state were checked.
+- Verified in a browser: all nine Settings selects enhanced, mouse and keyboard picks update the
+  real select and fire `change` (the push-to-talk row appeared, Apply enabled), disabled state
+  mirrored; SelectMenu opens up/down correctly and picks; the tray page's layout matches the
+  window size the main process sets. Not yet seen in the rebuilt app.
+- Tests: styled-select 4, tray menu 5, SelectMenu render 2. Desktop 326, web 198, root 192/193.
+
 ## 2026-09-23 — text-only mode (Claude)
 - Settings → Application → Conversation: **Voice** or **Text only**. Text only is an ordinary
   typed chat: no microphone, no spoken replies, no deafen button.

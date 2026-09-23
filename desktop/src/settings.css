@@ -1045,3 +1045,143 @@ footer {
 .permission-rule-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .permission-rule-head h2 { margin: 0; font-size: 13px; font-family: ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
 .permission-rule-card dl { margin: 8px 0 0; }
+
+/* Styled dropdowns (styled-select.js). The native <select> stays in place, invisible,
+   as the value and event source; these draw the box and the open list, which Windows
+   would otherwise render itself - white and square - whatever the page's theme. */
+.styled-select {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+.setting-inline > .styled-select { flex: 1; }
+.styled-select > select {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.styled-select-trigger {
+  display: flex;
+  width: 100%;
+  height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 0 14px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  background: var(--panel);
+  text-align: left;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.styled-select-trigger:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.styled-select.open .styled-select-trigger {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+.styled-select-trigger:disabled {
+  color: var(--text-auxiliary);
+  background: var(--page);
+  cursor: not-allowed;
+}
+.styled-select-label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.styled-select-chevron {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  fill: none;
+  stroke: var(--text-3);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform .15s ease;
+}
+.styled-select.open .styled-select-chevron { transform: rotate(180deg); stroke: var(--accent-bright); }
+.styled-select-list {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  box-shadow: 0 18px 44px rgb(0 0 0 / 55%), 0 0 0 1px rgb(0 0 0 / 25%);
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+  animation: styled-select-in .12s ease-out;
+}
+.styled-select-list.up {
+  top: auto;
+  bottom: calc(100% + 6px);
+  animation-name: styled-select-in-up;
+}
+@keyframes styled-select-in { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes styled-select-in-up { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) {
+  .styled-select-list { animation: none; }
+  .styled-select-chevron, .styled-select-trigger { transition: none; }
+}
+.styled-select-group {
+  padding: 9px 10px 4px;
+  color: var(--text-4);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.styled-select-group:not(:first-child) {
+  margin-top: 4px;
+  border-top: 1px solid var(--divider);
+}
+.styled-select-option {
+  display: flex;
+  width: 100%;
+  min-height: 34px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+  background: transparent;
+  text-align: left;
+  white-space: nowrap;
+}
+.styled-select-option:hover:not(:disabled),
+.styled-select-option:focus-visible {
+  color: var(--text);
+  background: var(--fill-hover);
+  outline: none;
+}
+.styled-select-option[aria-selected="true"] {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+.styled-select-option[aria-selected="true"]::after {
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--accent-bright);
+  content: "✓";
+}
+.styled-select-option:disabled {
+  color: var(--text-4);
+  cursor: default;
+  opacity: .6;
+}
+/* Cards clip their rows to the rounded corners; an open list must be able to leave. */
+.settings-card:has(.styled-select.open) { overflow: visible; }

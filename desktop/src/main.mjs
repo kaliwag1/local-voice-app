@@ -98,6 +98,7 @@ import { createGracefulShutdown, withDeadline } from './graceful-shutdown.mjs'
 import { DesktopPresence } from './desktop-presence.mjs'
 import { createPushToTalkHook } from './push-to-talk-hook.mjs'
 import { GlobalToggleShortcut } from './global-toggle-shortcut.mjs'
+import { createTrayMenu } from './tray-menu.mjs'
 import { createElectronGatewayCredentialStore } from './gateway-credential-store.mjs'
 import { createLocalModelSwitcher, readAppModeSync } from './local-model-switch.mjs'
 import { transcribeAudioFile } from './local-audio-transcription.mjs'
@@ -648,6 +649,16 @@ function showDesktop(reason = 'tray') {
   })
 }
 
+const trayMenu = createTrayMenu({
+  BrowserWindow,
+  screen,
+  ipcMain,
+  page: resolve(here, 'tray-menu.html'),
+  preload: resolve(here, 'tray-menu-preload.cjs'),
+  logger,
+})
+let trayMenuBound = false
+
 function createTray() {
   if (!tray) {
     const iconPath = resolve(
@@ -664,26 +675,47 @@ function createTray() {
     tray = new Tray(icon)
     tray.setToolTip('Qwen Audio Agent')
   }
-  tray.setContextMenu(Menu.buildFromTemplate([
+  const items = [
     {
+      id: 'show',
+      icon: 'orb',
       label: desktopText('显示悬浮球'),
       // "Show floating orb" means the orb, not whatever the window last was.
       click: () => { showDesktop('tray'); collapseToOrb() },
     },
     {
+      id: 'reset',
+      icon: 'reset',
       label: 'Reset floating orb',
       click: () => resetDesktopOrb(),
     },
     {
+      id: 'settings',
+      icon: 'settings',
       label: desktopText('设置…'),
       click: () => showSettings(),
     },
     { type: 'separator' },
     {
+      id: 'quit',
+      icon: 'quit',
+      danger: true,
       label: desktopText('退出 Qwen Audio Agent'),
       click: () => app.quit(),
     },
-  ]))
+  ]
+  if (process.platform === 'win32') {
+    // Windows draws native tray menus in its own light style; ours matches the app.
+    trayMenu.setItems(items)
+    if (!trayMenuBound) {
+      trayMenuBound = true
+      tray.on('right-click', () => { void trayMenu.open() })
+    }
+  } else {
+    tray.setContextMenu(Menu.buildFromTemplate(items.map(({ type, label, click }) => (
+      type === 'separator' ? { type } : { label, click }
+    ))))
+  }
   return tray
 }
 
@@ -1937,6 +1969,7 @@ if (!app.requestSingleInstanceLock()) {
       desktopPresence.destroy()
       desktopWakeWord.stop()
       pushToTalkHook.stop()
+      trayMenu.destroy()
       tray?.destroy()
       tray = null
       const server = rendererServer

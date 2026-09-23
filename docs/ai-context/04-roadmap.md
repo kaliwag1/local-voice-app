@@ -5,9 +5,11 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 ## Current status (2026-09-23, Claude session 4)
 - Branch `jake/local-voice-app`; see `git log` for the exact head. Jake pushes with
   `Push To GitHub.cmd`.
-- **Every test suite passes**: root 192/193 (one skipped), desktop 317/317, web 196/196,
+- **Every test suite passes**: root 192/193 (one skipped), desktop 326/326, web 198/198,
   server 1316/1317 (one Windows-only skip), speech adapter 9 + 14 + 7. Treat any new failure as real, not "pre-existing".
   One unreproduced server flake was seen once in 11 full runs.
+- **Restyled startup box, dropdowns and tray menu** - the startup box is live now (new exe);
+  dropdowns and the tray menu need the rebuild. See 03-changes.
 - **Text-only mode built, awaiting a rebuild and a live check** (Settings → Application →
   Conversation). See the roadmap entry below.
 - **Deafen key built, awaiting a rebuild and a live check** (Ctrl+Alt+D, or the speaker button

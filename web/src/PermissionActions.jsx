@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import SelectMenu from './SelectMenu.jsx'
 import { t } from './i18n.js'
 import { suggestRule } from '../../shared/permission-rule-patterns.mjs'
 
@@ -69,10 +70,15 @@ export default function PermissionActions({ authorization, onRespond, onRemember
       </label>
       {suggestion.type === 'path' && <label>
         <span>{t('访问')}</span>
-        <select value={access} onChange={event => setAccess(event.target.value)}>
-          <option value="read">{t('只读')}</option>
-          <option value="write">{t('读写')}</option>
-        </select>
+        <SelectMenu
+          value={access}
+          ariaLabel={t('访问')}
+          options={[
+            { value: 'read', label: t('只读') },
+            { value: 'write', label: t('读写') },
+          ]}
+          onChange={setAccess}
+        />
       </label>}
       <small>{suggestion.type === 'command'
         ? t('* 匹配任意内容。删除类和危险命令始终会询问。')

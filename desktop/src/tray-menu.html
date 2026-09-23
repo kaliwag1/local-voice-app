@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'"
+    />
+    <title>ZD Voice</title>
+    <link rel="stylesheet" href="./tray-menu.css" />
+  </head>
+  <body>
+    <div class="menu" role="menu" aria-label="ZD Voice">
+      <div class="menu-header">
+        <span class="brand-mark" aria-hidden="true">ZD</span>
+        <span class="menu-title">ZD Voice</span>
+      </div>
+      <div class="menu-items" id="items"></div>
+    </div>
+    <script type="module" src="./tray-menu.js"></script>
+  </body>
+</html>

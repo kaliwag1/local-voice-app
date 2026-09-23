@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import SelectMenu from '../SelectMenu.jsx'
 import {
   MAX_INPUT_FILE_BYTES,
   createInputFilePart,
@@ -131,10 +132,13 @@ export default function MultimodalComposer({
   >
     {screenApps && <div className="screen-capture-picker">
       <label htmlFor="screen-app-select">Choose the app to look at</label>
-      <select id="screen-app-select" value={screenApp} disabled={capturingScreen}
-        onChange={event => setScreenApp(event.target.value)}>
-        {screenApps.map(app => <option key={app.app} value={app.app}>{app.label}</option>)}
-      </select>
+      <SelectMenu
+        id="screen-app-select"
+        value={screenApp}
+        disabled={capturingScreen}
+        options={screenApps.map(app => ({ value: app.app, label: app.label }))}
+        onChange={setScreenApp}
+      />
       <div>
         <button type="button" disabled={!screenApp || capturingScreen} onClick={captureScreen}>
           {capturingScreen ? 'Capturing…' : 'Capture window'}

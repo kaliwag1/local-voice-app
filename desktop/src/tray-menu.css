@@ -1,0 +1,132 @@
+/* Tray menu (tray-menu.mjs). Same tokens as settings.css / web/src/styles.css. */
+:root {
+  color-scheme: dark;
+  font-family: "Segoe UI Variable Text", "Segoe UI", Inter, system-ui, sans-serif;
+  font-size: 13px;
+  --surface-2: #14151d;
+  --surface-3: #1c1d28;
+  --border: rgb(255 255 255 / .09);
+  --border-strong: rgb(255 255 255 / .16);
+  --fill-hover: rgb(255 255 255 / .08);
+  --text: #f2efff;
+  --text-2: #cdc8dc;
+  --text-3: #a5a1b3;
+  --accent: #7358e8;
+  --accent-bright: #a38aff;
+  --accent-soft: rgb(115 88 232 / .2);
+  --danger: #ff7b82;
+  --danger-soft: rgb(255 123 130 / .14);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+}
+
+body { padding: 10px; }
+
+.menu {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 60% at 0% 0%, rgb(115 88 232 / .16), transparent 60%),
+    var(--surface-2);
+  box-shadow: 0 10px 28px rgb(0 0 0 / .5), 0 0 0 1px rgb(0 0 0 / .3);
+  animation: menu-in .12s ease-out;
+}
+
+@keyframes menu-in { from { opacity: 0; transform: translateY(4px) scale(.985); } }
+@media (prefers-reduced-motion: reduce) { .menu { animation: none; } }
+
+.menu-header {
+  display: flex;
+  height: 44px;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.brand-mark {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 8px;
+  color: #fff;
+  background: linear-gradient(145deg, var(--accent-bright), var(--accent));
+  box-shadow: 0 0 14px rgb(115 88 232 / .45);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+.menu-title {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.menu-items { display: flex; flex-direction: column; }
+
+.menu-item {
+  display: flex;
+  height: 34px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--text-2);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-item svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: var(--text-3);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  color: var(--text);
+  background: var(--fill-hover);
+  outline: none;
+}
+
+.menu-item:hover svg,
+.menu-item:focus-visible svg { stroke: var(--accent-bright); }
+
+.menu-item.danger:hover,
+.menu-item.danger:focus-visible {
+  color: #ffd0d3;
+  background: var(--danger-soft);
+}
+
+.menu-item.danger:hover svg,
+.menu-item.danger:focus-visible svg { stroke: var(--danger); }
+
+.menu-separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
