@@ -17,6 +17,7 @@ export function initialDesktopClientSettings(search = '') {
     pushToTalkKey: params.get('pushToTalkKey') ?? 'F9',
     pushToTalkGlobal: params.get('pushToTalkGlobal') === 'true',
     deafenShortcut: params.get('deafenShortcut') ?? 'CommandOrControl+Alt+D',
+    appMode: params.get('appMode') === 'text' ? 'text' : 'voice',
     language: params.get('lang') || '',
   }
 }
@@ -44,6 +45,9 @@ export function applyDesktopClientSettings(current, update = {}) {
     deafenShortcut: typeof update.deafenShortcut === 'string'
       ? update.deafenShortcut
       : current.deafenShortcut,
+    appMode: update.appMode === 'text' || update.appMode === 'voice'
+      ? update.appMode
+      : current.appMode,
     language: update.language || current.language,
   }
 }

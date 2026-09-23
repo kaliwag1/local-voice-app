@@ -53,6 +53,21 @@ explicitly unavailable. Activity survives chat switching and restarts.
    upstream change. Stdout is deliberately not kept: it is where the service prints
    `USER: <what you said>` and `ASSISTANT: <reply>`, and conversation text stays unlogged.
 
+## Conversation mode (voice / text only)
+
+Settings → Application → **Conversation**. Writes `realtime-voice-chat\.selected-app-mode`
+(`voice` or `text`; absent = voice), which the launcher, the model switcher and the Gateway's
+environment all read. Text mode still runs the speech service on 8765 - it is the route to the
+model for typed chat as well - but as `--stt text-only --tts text-only` (no speech models), and
+the Gateway gets `SPEECH_TO_SPEECH_OUTPUT=text` so every response asks for text. Switching
+restarts speech and the Gateway (like a model switch, without touching LM Studio); the chat
+window reloads without the mic and deafen buttons. A voice picked while in text mode is saved
+for the next voice start. To test the text path without the app, `scripts/diagnostics/gateway-text-probe.mjs`
+types one message into a running Gateway and prints what comes back.
+
+**Deafen:** Ctrl+Alt+D from any app (Settings → Application → Deafen key), or the speaker button
+left of the mic. Replies keep arriving as text. Not remembered across restarts.
+
 ## Model switching
 
 **Bonsai:** choose **Bonsai 2 Official PQ2 (Prism)** or **Bonsai 2 CRACK PQ2 (Prism)** in the same

@@ -62,11 +62,33 @@ unchanged; only how the conversion is carried out differs.
 It checks the source hashes of `PocketTTSHandler.setup`, `PocketTTSHandler.process`
 and `AudioHandler.encode_audio_chunk` before installing.
 
+## Text-only mode (`text_only.py`)
+
+The app's typed chat reaches the model through this service too, so text mode
+cannot just leave it stopped. `--stt text-only --tts text-only` starts it with
+stand-ins for the two speech stages and loads no speech models; the Realtime
+protocol, tool calls, reasoning and formatting all run unchanged. Measured with a
+stand-in model: listening in ~10 s using ~0.4 GB, against ~23 s and ~5.4 GB for
+the voice setup at startup.
+
+Upstream already skips TTS for a response whose `output_modalities` lack audio, so
+the TTS stand-in only sees the end-of-response marker, answered as
+`PocketTTSHandler` does - that is what closes the response. Anything spoken that
+still arrives is dropped (its text has already gone out); STT input is ignored.
+Registered first in `sitecustomize.py`, before any argument parsing, including
+the `choices` that `ModuleArguments` copied from the registries. Registering
+changes nothing unless those flags are passed.
+
+Upstream treats a `response.create` with no `output_modalities` as audio, whatever
+the session says, so the Gateway's speech provider fills in text on every response
+in text mode (`SPEECH_TO_SPEECH_OUTPUT=text`).
+
 From the app repository on Windows:
 
 ```
 ../.voice-env/Scripts/python.exe scripts/runtime/speech-adapter/test_reasoning_adapter.py
 ../.voice-env/Scripts/python.exe scripts/runtime/speech-adapter/test_seamless_audio.py
+../.voice-env/Scripts/python.exe scripts/runtime/speech-adapter/test_text_only.py
 ```
 
 The adapter covers streamed Chat Completions, shared by both Bonsai variants and

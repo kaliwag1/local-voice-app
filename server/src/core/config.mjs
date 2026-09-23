@@ -237,6 +237,11 @@ export const config = {
   // The upstream WebSocket does not require authentication. This optional
   // credential is useful only when users put it behind an authenticated proxy.
   speechToSpeechAuthToken: realtimeFrontend.speechToSpeechAuthToken,
+  // Text mode starts the service without speech models, so every response must
+  // ask for text. The desktop app sets this from the saved conversation mode.
+  speechToSpeechOutput: String(process.env.SPEECH_TO_SPEECH_OUTPUT || '').trim().toLowerCase() === 'text'
+    ? 'text'
+    : 'audio',
   // User-managed MiniCPM-o 4.5 audio full-duplex Realtime endpoint.
   miniCpmORealtimeUrl: realtimeFrontend.miniCpmORealtimeUrl,
   miniCpmOAuthToken: realtimeFrontend.miniCpmOAuthToken,

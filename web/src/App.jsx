@@ -219,8 +219,12 @@ export default function App() {
     pushToTalkKey,
     pushToTalkGlobal,
     deafenShortcut,
+    appMode,
   } = desktopClientSettings
-  const pushToTalkMode = desktopOrbMode && micMode === 'push-to-talk' && Boolean(pushToTalkKey)
+  // Text mode: the speech service runs without speech, so there is no microphone,
+  // no spoken reply and nothing to deafen. Switched in Settings → Application.
+  const textMode = desktopOrbMode && appMode === 'text'
+  const pushToTalkMode = !textMode && desktopOrbMode && micMode === 'push-to-talk' && Boolean(pushToTalkKey)
   // `t()` reads the module-level runtime language. Keeping a revision in
   // React state makes a language-only settings update repaint this surface
   // without replacing its Gateway WebSocket or Realtime Session.
@@ -245,7 +249,8 @@ export default function App() {
   const [localVoiceOptions, setLocalVoiceOptions] = useState([])
   const [localVoiceChanging, setLocalVoiceChanging] = useState(false)
   const [voiceEnabled, setVoiceEnabled] = useState(() => (
-    desktopClientSettings.micMode !== 'push-to-talk' && initialVoiceEnabled({
+    desktopClientSettings.appMode !== 'text'
+    && desktopClientSettings.micMode !== 'push-to-talk' && initialVoiceEnabled({
       desktopOrbMode,
       clientType: activeClientType,
     })
@@ -948,6 +953,7 @@ export default function App() {
   // needs a live input stream to resume on "你好千问" while hidden.
   const voiceEnabledForWakeWord = (
     desktopOrbMode
+    && !textMode
     && desktopLifecycle === 'hidden'
     && wakeWordEnabled
   )
@@ -1330,6 +1336,7 @@ export default function App() {
   }
 
   const enableVoice = () => {
+    if (textMode) return
     if (!voice.activateAudio()) return
     if (voice.ownership.state === 'busy') {
       setWaitingForVoice(true)
@@ -1473,7 +1480,7 @@ export default function App() {
     if (typeof subscribe !== 'function') return undefined
     return subscribe(progress => {
       setLocalModelProgress(progress)
-      if (progress?.phase === 'swapping') disableVoice()
+      if (progress?.phase === 'swapping' || progress?.phase === 'mode') disableVoice()
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -1565,6 +1572,7 @@ export default function App() {
       case 'unloading': return 'Freeing the previous model…'
       case 'reloading': return `Reloading with a ${formatContextLength(progress.contextLength)} context…`
       case 'voice': return `Restarting speech with the ${progress.voice} voice — takes about 15 seconds…`
+      case 'mode': return progress.appMode === 'text' ? 'Switching to text only…' : 'Switching to voice…'
       case 'recovering': return 'Something failed — restoring the previous model…'
       default: return ''
     }
@@ -1739,7 +1747,7 @@ export default function App() {
           aria-label={t('语音控制')}
           onPointerDown={event => event.stopPropagation()}
         >
-          <button
+          {!textMode && <button
             className={!voiceEnabled ? 'active' : ''}
             onClick={event => {
               event.stopPropagation()
@@ -1761,7 +1769,7 @@ export default function App() {
             }
           >
             <OrbControlIcon type="microphone" muted={!voiceEnabled} />
-          </button>
+          </button>}
           <button
             onClick={event => {
               event.stopPropagation()
@@ -2053,14 +2061,14 @@ export default function App() {
         onClick={resetSession}
         aria-label={t('新会话')}
       >{t('新会话')}</button>}
-      <button
+      {!textMode && <button
         className={`ghost deafen${deafened ? ' active' : ''}`}
         onClick={() => setDeafened(value => !value)}
         aria-label={deafenHint}
         aria-pressed={deafened}
         title={deafenHint}
-      ><OrbControlIcon type="speaker" muted={deafened} /></button>
-      <button
+      ><OrbControlIcon type="speaker" muted={deafened} /></button>}
+      {!textMode && <button
         className={[
           'voice',
           voiceEnabled ? 'active' : '',
@@ -2092,7 +2100,7 @@ export default function App() {
           : voiceEnabled
             ? t('麦克风静音')
             : waitingForVoice ? t('取消等待') : t('开启麦克风')}
-      </button>
+      </button>}
       {desktopOrbMode && <div className="window-controls" role="group" aria-label="Window">
         <button
           className="ghost window-control window-control-settings"

@@ -8,6 +8,7 @@ import {
   ownsSpeech,
   parseContextLength,
   parseVoice,
+  readAppModeSync,
   speechArguments,
   speechEnvironment,
   updateOpenCodeConfig,
@@ -57,7 +58,7 @@ test('Bonsai switch is sequential and config and speech use Prism; failure resto
 function fixture({ failAt = '', ownership = 'owned', freeVram = 8 * GiB, voiceFiles = ['jake.wav', 'notes.txt'], bonsai = null } = {}) {
   const paths = {
     lms: 'lms.exe', speech: speechPath, opencodeConfig: 'opencode.json',
-    selection: 'selection', contextLength: 'context', voice: 'voice',
+    selection: 'selection', contextLength: 'context', voice: 'voice', appMode: 'mode',
     voicesDir: 'C:\\voice\\voices', workdir: 'C:\\voice',
   }
   const data = new Map([
@@ -68,6 +69,7 @@ function fixture({ failAt = '', ownership = 'owned', freeVram = 8 * GiB, voiceFi
   ])
   const calls = []
   const progress = []
+  const speechModes = []
   let activeSpeech = { pid: 42, executablePath: speechPath, commandLine: speechPath }
   // LM Studio can hold several models at once; track them all.
   const loadedSet = new Set([oldKey])
@@ -92,7 +94,7 @@ function fixture({ failAt = '', ownership = 'owned', freeVram = 8 * GiB, voiceFi
     },
     listener: async () => activeSpeech,
     stopSpeech: async () => { calls.push(['stopSpeech']); activeSpeech = null },
-    startSpeech: async (key, voice) => { calls.push(['startSpeech', key, voice]); fail('startSpeech'); activeSpeech = {
+    startSpeech: async (key, voice, mode) => { calls.push(['startSpeech', key, voice]); speechModes.push(mode); fail('startSpeech'); activeSpeech = {
       pid: 43, executablePath: speechPath, commandLine: speechPath,
     } },
     bonsai,
@@ -104,7 +106,7 @@ function fixture({ failAt = '', ownership = 'owned', freeVram = 8 * GiB, voiceFi
     },
   })
   return {
-    controller, data, calls, progress,
+    controller, data, calls, progress, speechModes,
     // The single loaded model, or null when none / several are loaded.
     get loaded() { return loadedSet.size === 1 ? [...loadedSet][0] : null },
     get loadedAll() { return [...loadedSet] },
@@ -145,6 +147,7 @@ test('lists only installed LLMs, current selection and context size', async () =
       { id: 'jake.wav', kind: 'file', label: 'jake' },
     ],
     voicesDir: 'C:\\voice\\voices',
+    appMode: 'voice',
   })
 })
 
@@ -190,6 +193,77 @@ test('voice parsing and speech arguments', () => {
   assert.equal(args.at(-1), '--no_smart_turn')
   assert.equal(args[args.indexOf('--responses_api_disable_thinking') + 1], 'false')
   assert.ok(!speechArguments('m', null).includes('--pocket_tts_voice'))
+})
+
+test('text mode restarts speech without its speech models, then the Gateway, and is remembered', async () => {
+  const state = fixture()
+  assert.equal((await state.controller.list()).appMode, 'voice')
+  assert.deepEqual(await state.controller.setAppMode('text'), { ok: true, appMode: 'text' })
+  assert.equal(state.data.get('mode').trim(), 'text')
+  const steps = state.calls.filter(call => call[0] !== 'lms')
+  assert.deepEqual(steps.map(call => call[0] === 'write' ? `write:${call[1]}` : call[0]), [
+    'gateway.stop', 'stopSpeech', 'write:mode', 'startSpeech', 'gateway.start',
+  ])
+  assert.deepEqual(state.speechModes, ['text'])
+  assert.ok(!state.calls.some(call => call[0] === 'lms' && ['load', 'unload'].includes(call[1])))
+  assert.equal((await state.controller.list()).appMode, 'text')
+  assert.deepEqual(await state.controller.setAppMode('text'), { ok: true, appMode: 'text' })
+  assert.equal(state.speechModes.length, 1)
+})
+
+test('in text mode a model switch keeps text and a voice change is only saved', async () => {
+  const state = fixture()
+  await state.controller.setAppMode('text')
+  await state.controller.switchModel(newKey)
+  assert.deepEqual(state.speechModes, ['text', 'text'])
+  const starts = state.speechModes.length
+  assert.deepEqual(await state.controller.setVoice('alba'), { ok: true, voice: 'alba' })
+  assert.equal(state.data.get('voice').trim(), 'alba')
+  assert.equal(state.speechModes.length, starts)
+  await state.controller.setAppMode('voice')
+  assert.equal(state.calls.filter(call => call[0] === 'startSpeech').at(-1)[2], 'alba')
+  assert.equal(state.speechModes.at(-1), 'voice')
+})
+
+test('a failed switch to text restores voice speech, the saved mode and the Gateway', async () => {
+  const state = fixture({ failAt: 'startSpeech' })
+  const result = await state.controller.setAppMode('text')
+  assert.equal(result.ok, false)
+  assert.equal(result.appMode, 'voice')
+  assert.equal(state.data.get('mode').trim(), 'voice')
+  assert.deepEqual(state.speechModes, ['text', 'voice'])
+  assert.equal(state.calls.at(-1)[0], 'gateway.start')
+  assert.equal(state.progress.at(-1).phase, 'failed')
+})
+
+test('refuses an unknown mode or a borrowed Gateway without touching anything', async () => {
+  const state = fixture()
+  assert.equal((await state.controller.setAppMode('silent')).ok, false)
+  const borrowed = fixture({ ownership: 'unavailable' })
+  assert.equal((await borrowed.controller.setAppMode('text')).ok, false)
+  for (const fixtureState of [state, borrowed]) {
+    assert.ok(!fixtureState.calls.some(call => ['gateway.stop', 'stopSpeech', 'startSpeech'].includes(call[0])))
+    assert.equal(fixtureState.data.has('mode'), false)
+  }
+})
+
+test('text-mode speech arguments load no speech models and no voice', () => {
+  const args = speechArguments('m', 'alba', 'text')
+  assert.equal(args[args.indexOf('--stt') + 1], 'text-only')
+  assert.equal(args[args.indexOf('--tts') + 1], 'text-only')
+  assert.ok(!args.includes('--pocket_tts_voice'))
+  assert.equal(args[args.indexOf('--llm_backend') + 1], 'chat-completions')
+  const voice = speechArguments('m', 'alba')
+  assert.equal(voice[voice.indexOf('--stt') + 1], 'parakeet-tdt')
+  assert.equal(voice[voice.indexOf('--tts') + 1], 'pocket')
+})
+
+test('the saved mode is read for the Gateway, defaulting to voice', () => {
+  assert.equal(readAppModeSync('mode', () => 'text\n'), 'text')
+  // PowerShell writes a BOM (lesson 5); trim() drops it.
+  assert.equal(readAppModeSync('mode', () => '\uFEFFTEXT'), 'text')
+  assert.equal(readAppModeSync('mode', () => 'anything'), 'voice')
+  assert.equal(readAppModeSync('mode', () => { throw new Error('missing') }), 'voice')
 })
 
 test('preloads the new model beside the old one and only then swaps services', async () => {

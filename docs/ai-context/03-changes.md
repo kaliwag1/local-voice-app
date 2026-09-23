@@ -2,6 +2,38 @@
 
 Each entry: what, why, where. Keep this in sync with commits on `jake/local-voice-app`.
 
+## 2026-09-23 — text-only mode (Claude)
+- Settings → Application → Conversation: **Voice** or **Text only**. Text only is an ordinary
+  typed chat: no microphone, no spoken replies, no deafen button.
+- Jake asked for text mode to skip the speech service. It cannot simply be left stopped: the
+  launcher runs it with `--llm_backend chat-completions`, so it is also how typed chat reaches the
+  model (lesson 26). Jake first picked "launcher skips it" on a wrong premise from me (that it
+  used GPU memory; it runs on the CPU), then, with the real trade-off, "skip speech entirely".
+  Rather than build a second route from the Gateway to LM Studio - task hand-off, persona,
+  thinking and formatting would all need redoing and keeping in step - text mode runs the same
+  service with **stand-ins for its speech stages** (`scripts/runtime/speech-adapter/text_only.py`,
+  `--stt text-only --tts text-only`). Measured against a stand-in model on spare ports: text
+  listening in 9.8 s at 413 MB, voice 23.1 s at 5.4 GB just after start (it settles near 850 MB).
+- Gateway: `SPEECH_TO_SPEECH_OUTPUT=text` makes the speech provider request text for the
+  session, spoken announcements, task results and permission prompts, and fill in text on any
+  `response.create` that names no modality. That last part was found by the end-to-end probe:
+  typed input sends none and upstream then speaks it (lesson 27). Text replies stream straight
+  to the chat instead of waiting for playback. Voice mode requests are unchanged.
+- Mode file `realtime-voice-chat\.selected-app-mode` (ignored by the launcher repo's Git), read by
+  `Start My Voice App.ps1`, the model switcher and the Gateway environment. Switching
+  (`setAppMode` in `desktop/src/local-model-switch.mjs`) stops the Gateway and speech, writes the
+  file, starts speech in the new mode and restarts the Gateway, with the same recovery as a
+  model switch. A model switch in text mode keeps text; a voice picked in text mode is only saved.
+- Chat window: `appMode=text` in the desktop URL hides the mic (header and orb), deafen and
+  push-to-talk, and nothing can enable the mic. Checked in the browser preview.
+- Verified end to end without the app: real Gateway (isolated config) → text-only service → a
+  stand-in chat-completions server, driven by the chat window's own client SDK
+  (`scripts/diagnostics/gateway-text-probe.mjs`): the reply streamed in three pieces with its line break, no
+  audio events. A spoken request sent straight to the text-only service still completes.
+- Tests: speech adapter 7 new (9 + 14 existing still pass with the hook on), switcher 6, Gateway
+  provider 1, Settings panel 2. Server 1316 + 1 Windows skip, desktop 317, web 196, root 192/193.
+  Needs a rebuild; not yet tried in the app with a real model.
+
 ## 2026-09-23 — a deafen key (Claude)
 - Ctrl+Alt+D, from any app, stops you hearing the assistant while its replies keep arriving as
   text. Press again to hear it. Jake chose local mute over turning audio generation off: speech

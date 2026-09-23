@@ -17,6 +17,7 @@ test('desktop client settings initialize from the desktop URL', () => {
     pushToTalkKey: 'F8',
     pushToTalkGlobal: false,
     deafenShortcut: 'F7',
+    appMode: 'voice',
     language: 'en',
   })
 })
@@ -30,6 +31,7 @@ test('desktop client settings hot-apply without replacing unrelated state', () =
     pushToTalkKey: 'F9',
     pushToTalkGlobal: false,
     deafenShortcut: 'CommandOrControl+Alt+D',
+    appMode: 'voice',
     language: 'zh-CN',
   }
 
@@ -45,6 +47,7 @@ test('desktop client settings hot-apply without replacing unrelated state', () =
     pushToTalkKey: 'F9',
     pushToTalkGlobal: false,
     deafenShortcut: 'CommandOrControl+Alt+D',
+    appMode: 'voice',
     language: 'en',
   })
 })

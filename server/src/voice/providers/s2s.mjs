@@ -12,6 +12,24 @@ import { gaRealtimeProtocol } from './ga-protocol.mjs'
 const INPUT_SAMPLE_RATE = 16000
 const OUTPUT_SAMPLE_RATE = 24000
 
+// Voice mode speaks every reply; text mode (a service started without speech
+// models) asks for text, which upstream streams without touching its TTS stage.
+function outputModalities() {
+  return [config.speechToSpeechOutput === 'text' ? 'text' : 'audio']
+}
+
+// Upstream treats a response.create without output_modalities as audio whatever
+// the session asked for, and typed input sends none - so in text mode every
+// response states it. Voice mode requests go out exactly as before.
+const s2sProtocol = Object.freeze({
+  ...gaRealtimeProtocol,
+  responseCreate: response => gaRealtimeProtocol.responseCreate(
+    config.speechToSpeechOutput === 'text' && !response?.modalities
+      ? { ...response, modalities: ['text'] }
+      : response,
+  ),
+})
+
 function classifyError(message) {
   if (/session_limit_reached|session slots? (?:are|is) in use/i.test(message)) {
     return 'capacity_busy'
@@ -37,7 +55,7 @@ export const s2sProvider = {
   // Fully local ASR -> LLM -> TTS can take substantially longer than a cloud
   // model before producing its first response event.
   responseStartTimeoutMs: 60_000,
-  protocol: gaRealtimeProtocol,
+  protocol: s2sProtocol,
 
   capabilities: {
     // speech-to-speech applies session.update without sending session.updated.
@@ -76,7 +94,7 @@ export const s2sProvider = {
         description: tool.function.description,
         parameters: tool.function.parameters,
       })),
-      output_modalities: ['audio'],
+      output_modalities: outputModalities(),
       audio: {
         input: {
           // speech-to-speech treats an omitted input format as its native
@@ -98,7 +116,7 @@ export const s2sProvider = {
 
   buildSpeakResponse: content => ({
     conversation: 'none',
-    modalities: ['audio'],
+    modalities: outputModalities(),
     instructions: speakResponseInstructions(content),
     tool_choice: 'none',
   }),
@@ -110,7 +128,7 @@ export const s2sProvider = {
       content: [{ type: 'input_text', text: content }],
     },
     response: {
-      modalities: ['audio'],
+      modalities: outputModalities(),
       tool_choice: allowTools ? 'auto' : 'none',
       instructions: resultResponseInstructions,
     },
@@ -133,7 +151,7 @@ export const s2sProvider = {
       }],
     },
     response: {
-      modalities: ['audio'],
+      modalities: outputModalities(),
       tool_choice: 'none',
       instructions: permissionResponseInstructions,
     },

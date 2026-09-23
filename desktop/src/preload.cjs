@@ -59,6 +59,10 @@ contextBridge.exposeInMainWorld('qwenAudioAgentDesktop', {
     'qwen-audio-agent:local-voice-set',
     voice,
   ),
+  setLocalAppMode: mode => ipcRenderer.invoke(
+    'qwen-audio-agent:local-app-mode',
+    mode,
+  ),
   onPushToTalk: callback => {
     if (typeof callback !== 'function') return () => {}
     const listener = (_event, payload) => callback(Boolean(payload?.held))

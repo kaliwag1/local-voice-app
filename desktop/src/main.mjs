@@ -99,7 +99,7 @@ import { DesktopPresence } from './desktop-presence.mjs'
 import { createPushToTalkHook } from './push-to-talk-hook.mjs'
 import { GlobalToggleShortcut } from './global-toggle-shortcut.mjs'
 import { createElectronGatewayCredentialStore } from './gateway-credential-store.mjs'
-import { createLocalModelSwitcher } from './local-model-switch.mjs'
+import { createLocalModelSwitcher, readAppModeSync } from './local-model-switch.mjs'
 import { transcribeAudioFile } from './local-audio-transcription.mjs'
 import { collectHealthDiagnostics } from './health-diagnostics.mjs'
 import { callScreenTool, runningApps, screenshotImage } from './screen-capture.mjs'
@@ -368,6 +368,9 @@ function configuredGatewayEnvironment() {
       ...configuredNonEmpty,
       ...runtimePathEnvironment(runtimeEnvironment),
       QWEN_AUDIO_DESKTOP_AUTO_HIDE_SECONDS: String(settings.autoHideSeconds),
+      // Text mode runs the speech service without speech models, so the Gateway
+      // must ask it for text. Read at every start; a mode switch restarts it.
+      SPEECH_TO_SPEECH_OUTPUT: readAppModeSync() === 'text' ? 'text' : 'audio',
     },
     runtimeRoot,
     sourceRoot,
@@ -601,6 +604,7 @@ async function loadQwenAudioAgent(window) {
       pushToTalkKey: settings.pushToTalkKey,
       pushToTalkGlobal,
       deafenShortcut: settings.deafenShortcut,
+      appMode: readAppModeSync(),
       language: effectiveDesktopLanguage(settings.language, app.getLocale()),
       surfaceMode: desktopSurfaceMode,
       sessionId: desktopConversationSessionId,
@@ -1225,6 +1229,18 @@ ipcMain.handle('qwen-audio-agent:local-voice-set', async (event, voice) => {
     return { ok: false, error: 'Choose a listed voice.' }
   }
   return localModelSwitcher.setVoice(voice)
+})
+
+// Voice <-> text restarts speech and the Gateway, which reloads the conversation
+// window with the new mode. Allowed from Settings too, where the switch lives.
+ipcMain.handle('qwen-audio-agent:local-app-mode', async (event, mode) => {
+  if (!isAppWindow(event.sender)) {
+    throw new Error('Only this app’s own windows can change the conversation mode.')
+  }
+  if (typeof mode !== 'string' || mode.length > 20) {
+    return { ok: false, error: 'Choose voice or text.' }
+  }
+  return localModelSwitcher.setAppMode(mode)
 })
 
 ipcMain.handle('qwen-audio-agent:audio-file-pick', async event => {

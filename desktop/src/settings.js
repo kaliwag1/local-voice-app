@@ -18,6 +18,7 @@ import { isLoopbackUrl } from './security.mjs'
 import { installHealthPanel } from './health-panel.js'
 import { installPermissionsPanel } from './permissions-panel.js'
 import { installLocalVoicePanel } from './local-voice-panel.js'
+import { installLocalModePanel } from './local-mode-panel.js'
 import {
   desktopTranslator,
   effectiveDesktopLanguage,
@@ -88,6 +89,7 @@ function installOptionalPanel(install) {
 const refreshHealth = installOptionalPanel(installHealthPanel)
 const refreshPermissions = installOptionalPanel(installPermissionsPanel)
 const refreshLocalVoice = installOptionalPanel(installLocalVoicePanel)
+installOptionalPanel(bridge => installLocalModePanel(bridge))
 
 let translate = desktopTranslator('auto', navigator.language)
 const t = (text, params) => translate(text, params)

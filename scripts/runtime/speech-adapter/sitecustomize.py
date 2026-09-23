@@ -3,6 +3,14 @@ import os
 import sys
 
 if os.environ.get("ZD_VOICE_REASONING_ADAPTER") == "1":
+    # First, so the text-only backends exist before any argument parsing. Registering
+    # them changes nothing unless the service is started with --stt/--tts text-only.
+    try:
+        from text_only import install as install_text_only
+        install_text_only()
+    except Exception as error:
+        print(f"ZD Voice text-only mode unavailable: {type(error).__name__}: {error}", file=sys.stderr)
+
     try:
         from reasoning_adapter import install
         install()

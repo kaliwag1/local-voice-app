@@ -73,3 +73,11 @@
     Upstream has a stateful `_StreamingFIRResampler`; use it, one instance per stream. And check
     every stage: this pipeline had two chunked conversions, and fixing either alone changed
     almost nothing.
+26. **The speech service is also the chat route.** The launcher starts it with
+    `--llm_backend chat-completions` pointed at LM Studio/Bonsai; the Gateway reaches the model
+    for typed chat through it too. "Skip speech" therefore means "run it without speech models"
+    (`text_only.py`), not "don't start it". It runs on the CPU: it holds RAM, not VRAM.
+27. **Upstream speech-to-speech reads a missing `output_modalities` as audio.** A
+    `response.create` with none is spoken even when the session asked for text, and typed
+    input sends none. The symptom in text mode is a reply flattened onto one line (the audio
+    transcript joins parts with spaces, lesson 21). Every response has to state its modality.

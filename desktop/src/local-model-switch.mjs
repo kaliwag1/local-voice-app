@@ -1,5 +1,5 @@
 import { spawn, execFile } from 'node:child_process'
-import { closeSync, openSync, promises as fs } from 'node:fs'
+import { closeSync, openSync, readFileSync, promises as fs } from 'node:fs'
 import { homedir } from 'node:os'
 import path, { join, resolve } from 'node:path'
 import net from 'node:net'
@@ -21,6 +21,10 @@ export const CONTEXT_LENGTH_OPTIONS = [16384, 32768, 65536, 131072]
 export const VOICE_PRESETS = ['jean', 'alba', 'marius', 'javert', 'fantine', 'cosette', 'eponine', 'azelma']
 export const DEFAULT_VOICE = 'jean'
 const VOICE_FILE_EXTENSIONS = ['.wav', '.mp3', '.flac', '.ogg']
+// Voice: the full speech service. Text: the same service with its speech models
+// swapped for stand-ins (speech-adapter/text_only.py), so typed chat still reaches
+// the model through one route while nothing is transcribed or spoken.
+export const APP_MODES = ['voice', 'text']
 // Loading a second model beside the running one needs its weights plus a KV
 // cache for the requested context in free VRAM. The margin covers the cache
 // and CUDA workspace; below it LM Studio would spill to system RAM and crawl.
@@ -51,6 +55,7 @@ function defaultPaths(env = process.env, root = env.QWEN_AUDIO_LOCAL_VOICE_ROOT
     selection: join(root, '.selected-voice-model'),
     contextLength: join(root, '.selected-voice-context'),
     voice: join(root, '.selected-voice'),
+    appMode: join(root, '.selected-app-mode'),
     voicesDir: join(root, 'voices'),
     workdir: root,
     bonsai: bonsaiPaths(home, root),
@@ -123,16 +128,30 @@ function ownsSpeech(listener, expectedPath) {
   return normalizeWindowsPath(listener.commandLine).includes(target)
 }
 
+function parseAppMode(value) {
+  return String(value ?? '').trim().toLowerCase() === 'text' ? 'text' : 'voice'
+}
+
+// For the Gateway's environment, which is built synchronously before it starts.
+export function readAppModeSync(file = defaultPaths().appMode, read = readFileSync) {
+  try {
+    return parseAppMode(read(file, 'utf8'))
+  } catch {
+    return 'voice'
+  }
+}
+
 // Mirror of the argument list in Start My Voice App.ps1 — keep both in step.
-function speechArguments(modelKey, voice) {
+function speechArguments(modelKey, voice, mode = 'voice') {
   const route = localModelRoute(modelKey)
+  const text = mode === 'text'
   return [
-    'serve', '--device', 'cpu', '--stt', 'parakeet-tdt',
+    'serve', '--device', 'cpu', '--stt', text ? 'text-only' : 'parakeet-tdt',
     '--llm_backend', 'chat-completions', '--model_name', route.model,
     '--responses_api_base_url', route.baseUrl,
-    '--responses_api_api_key', 'lm-studio', '--tts', 'pocket',
+    '--responses_api_api_key', 'lm-studio', '--tts', text ? 'text-only' : 'pocket',
     '--responses_api_disable_thinking', 'false',
-    ...(voice ? ['--pocket_tts_voice', voice] : []),
+    ...(voice && !text ? ['--pocket_tts_voice', voice] : []),
     '--no_smart_turn',
   ]
 }
@@ -151,10 +170,10 @@ export function openSpeechLog(workdir, open = openSync) {
   }
 }
 
-function launchSpeech(file, modelKey, workdir, voice) {
+function launchSpeech(file, modelKey, workdir, voice, mode) {
   const log = openSpeechLog(workdir)
   try {
-    const child = spawn(file, speechArguments(modelKey, voice), {
+    const child = spawn(file, speechArguments(modelKey, voice, mode), {
       cwd: workdir, detached: true, windowsHide: true,
       stdio: ['ignore', 'ignore', log ?? 'ignore'],
       env: speechEnvironment(workdir),
@@ -258,8 +277,8 @@ export function createLocalModelSwitcher({
   gpuMemory = freeGpuMemory,
   listDir = async dir => { try { return await fs.readdir(dir) } catch (error) { if (error.code === 'ENOENT') return []; throw error } },
   stopSpeech = async info => { process.kill(info.pid); await waitForPort(SPEECH_PORT, false) },
-  startSpeech = async (modelKey, voice) => {
-    launchSpeech(paths.speech, modelKey, paths.workdir, voice)
+  startSpeech = async (modelKey, voice, mode = 'voice') => {
+    launchSpeech(paths.speech, modelKey, paths.workdir, voice, mode)
     await waitForPort(SPEECH_PORT, true, 120_000)
   },
   gateway = { ownership: () => 'unavailable', stop: async () => {}, start: async () => {}, resetBackendSessions: async () => {} },
@@ -284,6 +303,10 @@ export function createLocalModelSwitcher({
 
   async function contextLength() {
     return parseContextLength(await readOptional(paths.contextLength)) || DEFAULT_CONTEXT_LENGTH
+  }
+
+  async function appMode() {
+    return paths.appMode ? parseAppMode(await readOptional(paths.appMode)) : 'voice'
   }
 
   async function voiceFiles() {
@@ -332,6 +355,7 @@ export function createLocalModelSwitcher({
         ...files.map(id => ({ id, kind: 'file', label: id.replace(/\.[^.]+$/, '') })),
       ],
       voicesDir: paths.voicesDir,
+      appMode: await appMode(),
     }
   }
 
@@ -358,6 +382,7 @@ export function createLocalModelSwitcher({
       }
       const length = await contextLength()
       const voice = voiceArgument(await selectedVoice(await voiceFiles()))
+      const conversationMode = await appMode()
       const loaded = await loadedModels()
       const oldLoaded = loaded.find(item => item.modelKey === previousKey)
       const chosenAlreadyLoaded = loaded.some(item => item.modelKey === chosen.modelKey)
@@ -390,7 +415,7 @@ export function createLocalModelSwitcher({
         if (speech) { await stopSpeech(speech); speechStopped = true }
         await write(paths.opencodeConfig, after); configChanged = true
         speechStartAttempted = true
-        await startSpeech(chosen.modelKey, voice)
+        await startSpeech(chosen.modelKey, voice, conversationMode)
         await write(paths.selection, `${chosen.modelKey}\n`); selectionChanged = true
         // The backend's remembered coordinator session is pinned to the old
         // model; OpenCode rejects prompts on it once that model is gone from
@@ -422,7 +447,7 @@ export function createLocalModelSwitcher({
         if (configChanged) await recover(() => write(paths.opencodeConfig, before))
         if (newLoaded) await recover(() => lms('unload', chosen.modelKey))
         if (oldUnloaded) await recover(() => loadModel(previousKey, length))
-        if (speechStopped) await recover(() => startSpeech(previousKey, voice))
+        if (speechStopped) await recover(() => startSpeech(previousKey, voice, conversationMode))
         if (gatewayStopped) await recover(() => gateway.start())
         progress({ phase: 'failed', mode, modelKey: previousKey })
         return { ok: false, selectedModelKey: previousKey,
@@ -498,6 +523,11 @@ export function createLocalModelSwitcher({
         return { ok: false, voice: current.id,
           error: `Another program owns the speech service (${speech.executablePath || `pid ${speech.pid}`}). Close it before changing voices.` }
       }
+      // Text mode loads no voice, so the choice is only saved for the next voice start.
+      if (await appMode() === 'text') {
+        await write(paths.voice, `${chosen.id}\n`)
+        return { ok: true, voice: chosen.id }
+      }
       let speechStopped = false
       try {
         progress({ phase: 'voice', mode: 'voice', voice: chosen.id })
@@ -528,6 +558,62 @@ export function createLocalModelSwitcher({
     }
   }
 
+  // Voice <-> text. The speech service restarts with or without its speech models,
+  // and the Gateway restarts so every response asks for audio or text to match: it
+  // reads the saved mode when it starts, so the file is written before that.
+  async function setAppMode(value) {
+    if (pending) return { ok: false, error: 'A model switch is already in progress.' }
+    pending = true
+    try {
+      const current = await appMode()
+      const chosen = APP_MODES.includes(value) ? value : null
+      if (!chosen) return { ok: false, appMode: current, error: 'Choose voice or text.' }
+      if (chosen === current) return { ok: true, appMode: current }
+      const { selectedModelKey } = await list()
+      if (!selectedModelKey) return { ok: false, appMode: current, error: 'No local model is selected yet.' }
+      if (gateway.ownership() !== 'owned') {
+        return { ok: false, appMode: current,
+          error: 'This app is using another Qwen gateway. Close the other Qwen app and reopen this one before changing modes.' }
+      }
+      const speech = await listener()
+      if (speech && !ownsSpeech(speech, paths.speech)) {
+        return { ok: false, appMode: current,
+          error: `Another program owns the speech service (${speech.executablePath || `pid ${speech.pid}`}). Close it before changing modes.` }
+      }
+      const voice = voiceArgument(await selectedVoice(await voiceFiles()))
+      let gatewayStopped = false
+      let speechStopped = false
+      let modeWritten = false
+      try {
+        progress({ phase: 'mode', mode: 'app', appMode: chosen })
+        await gateway.stop(); gatewayStopped = true
+        if (speech) { await stopSpeech(speech); speechStopped = true }
+        await write(paths.appMode, `${chosen}\n`); modeWritten = true
+        await startSpeech(selectedModelKey, voice, chosen)
+        await gateway.start(); gatewayStopped = false
+        progress({ phase: 'done', mode: 'app', appMode: chosen })
+        return { ok: true, appMode: chosen }
+      } catch (error) {
+        const recoveryErrors = []
+        async function recover(action) { try { await action() } catch (failure) { recoveryErrors.push(failure.message) } }
+        const stray = await listener().catch(() => null)
+        if (stray && ownsSpeech(stray, paths.speech)) await recover(() => stopSpeech(stray))
+        if (modeWritten) await recover(() => write(paths.appMode, `${current}\n`))
+        if (speechStopped) await recover(() => startSpeech(selectedModelKey, voice, current))
+        if (gatewayStopped) await recover(() => gateway.start())
+        progress({ phase: 'failed', mode: 'app', appMode: current })
+        return { ok: false, appMode: current,
+          error: recoveryErrors.length
+            ? `${error.message} Recovery also needs attention: ${recoveryErrors.join('; ')}`
+            : error.message }
+      }
+    } catch (error) {
+      return { ok: false, error: error.message }
+    } finally {
+      pending = false
+    }
+  }
+
   // The Prism server is spawned detached so it outlives the launcher that starts
   // it, and nothing else ever closes it: quitting would leave the weights in
   // VRAM. stop() is a no-op unless the listener on port 8080 is still the
@@ -543,7 +629,7 @@ export function createLocalModelSwitcher({
     }
   }
 
-  return { list, switchModel, setContextLength, setVoice, stopLocalRuntime }
+  return { list, switchModel, setContextLength, setVoice, setAppMode, stopLocalRuntime }
 }
 
-export { canPreload, defaultPaths, ownsSpeech, parseContextLength, parseModels, parseVoice, speechArguments, updateOpenCodeConfig }
+export { canPreload, defaultPaths, ownsSpeech, parseAppMode, parseContextLength, parseModels, parseVoice, speechArguments, updateOpenCodeConfig }

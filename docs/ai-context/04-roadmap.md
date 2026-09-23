@@ -5,9 +5,11 @@ Status: ✅ done · 🔧 in progress · ⏳ agreed, not started · 💡 idea
 ## Current status (2026-09-23, Claude session 4)
 - Branch `jake/local-voice-app`; see `git log` for the exact head. Jake pushes with
   `Push To GitHub.cmd`.
-- **Every test suite passes**: root 192/193 (one skipped), desktop 309/309, web 196/196,
-  server 1315/1315, speech adapter 9 + 14. Treat any new failure as real, not "pre-existing".
+- **Every test suite passes**: root 192/193 (one skipped), desktop 317/317, web 196/196,
+  server 1316/1317 (one Windows-only skip), speech adapter 9 + 14 + 7. Treat any new failure as real, not "pre-existing".
   One unreproduced server flake was seen once in 11 full runs.
+- **Text-only mode built, awaiting a rebuild and a live check** (Settings → Application →
+  Conversation). See the roadmap entry below.
 - **Deafen key built, awaiting a rebuild and a live check** (Ctrl+Alt+D, or the speaker button
   left of the mic). See the roadmap entry below for what to try.
 - **Speech static fixed in code, awaiting Jake's ear.** Both resampling stages now stream
@@ -63,6 +65,14 @@ Existing machinery to build on:
   Gateway will keep waiting on playback events. See `playback-lifecycle.js`.
 
 ### Two modes — voice, and plain chat with no audio agent
+🔧 Built 2026-09-23, awaiting a rebuild and a live check. Text mode runs the speech service
+without speech models rather than not at all - it is also the route to the model (lesson 26);
+account and measurements in 03-changes. To check live: switch in Settings → Application →
+Conversation (the chat window reloads without the mic), send a typed message, run an agent task,
+restart via the desktop shortcut and confirm it comes back in text mode (`Last Voice App
+Start.txt` says "Starting local chat (text only)"), then switch back to voice and talk.
+
+Original notes:
 A mode where the app is an ordinary text chat: no microphone, no speech service, no TTS. Useful
 when the speech stack is not wanted or not running, and it should not require the local speech
 service to be up at all.

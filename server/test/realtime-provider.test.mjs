@@ -2277,6 +2277,31 @@ test('negotiates client audio rates while keeping the server-selected speech-to-
   assert.equal(session.audio.input.turn_detection.type, 'server_vad')
 })
 
+test('text mode asks speech-to-speech for text on every kind of response', t => {
+  const provider = REALTIME_PROVIDERS['speech-to-speech']
+  const previous = config.speechToSpeechOutput
+  t.after(() => { config.speechToSpeechOutput = previous })
+
+  config.speechToSpeechOutput = 'text'
+  assert.deepEqual(provider.buildSession({ agentContext: {} }).output_modalities, ['text'])
+  assert.deepEqual(provider.buildSpeakResponse('done').modalities, ['text'])
+  assert.deepEqual(provider.buildResultInjection('result').response.modalities, ['text'])
+  assert.deepEqual(provider.buildPermissionInjection({
+    id: 'p1', taskId: 't1', summary: 'run a command',
+  }).response.modalities, ['text'])
+
+  // Typed input creates its response with no modalities; upstream would speak it.
+  assert.deepEqual(provider.protocol.responseCreate(undefined).response.output_modalities, ['text'])
+  assert.deepEqual(provider.protocol.responseCreate({ instructions: 'x' }).response, {
+    instructions: 'x', output_modalities: ['text'],
+  })
+
+  config.speechToSpeechOutput = 'audio'
+  assert.deepEqual(provider.buildSession({ agentContext: {} }).output_modalities, ['audio'])
+  assert.deepEqual(provider.buildResultInjection('result').response.modalities, ['audio'])
+  assert.deepEqual(provider.protocol.responseCreate(undefined), { type: 'response.create' })
+})
+
 test('classifies a busy speech-to-speech pipeline as retryable capacity', () => {
   const provider = REALTIME_PROVIDERS['speech-to-speech']
 
